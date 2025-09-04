@@ -1,73 +1,21 @@
 import mongoose from "mongoose";
-import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
 
-// User Schema
 const userSchema = new mongoose.Schema(
   {
-    username: {
-      type: String,
-      required: [true, "Username is required"],
-      unique: true,
-      lowercase: true,
-      trim: true,
-      index: true,
-      minlength: [3, "Username must be at least 3 characters long"],
-      maxlength: [30, "Username cannot exceed 30 characters"],
-    },
-    email: {
-      type: String,
-      required: [true, "Email is required"],
-      unique: true,
-      lowercase: true,
-      trim: true,
-      match: [
-        /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/,
-        "Please enter a valid email",
-      ],
-    },
-    password: {
-      type: String,
-      required: [true, "Password is required"],
-      minlength: [6, "Password must be at least 6 characters long"],
-    },
-    refreshToken: {
-      type: String,
-      default: "",
-    },
-    role: {
-      type: String,
-      enum: ["user", "admin"],
-      default: "user",
-    },
+    username: { type: String, trim: true, required: true },
+    email: { type: String, unique: true, required: true, lowercase: true, trim: true },
+    password: { type: String, select: false, required: true },
+    role: { type: String, enum: ["admin", "user"], default: "user" },
+
+    // NEW: demographics for analytics
+    age: { type: Number, min: 0, max: 120 },
+    gender: { type: String, enum: ["male", "female", "other", "prefer_not", null], default: null },
+    interests: { type: [String], default: [] },
+    location: { type: String, default: "" },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-// Hash password before saving
-userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (err) {
-    next(err);
-  }
-});
-
-// Method to compare password during login
-userSchema.methods.comparePassword = async function (password) {
-  return await bcrypt.compare(password, this.password);
-};
-
-// Optional: Generate JWT token method
-userSchema.methods.generateJWT = function () {
-  return jwt.sign({ userId: this._id }, process.env.JWT_SECRET, {
-    expiresIn: "1d",
-  });
-};
-
-export const User = mongoose.model("User", userSchema);
+const User = mongoose.models.User || mongoose.model("User", userSchema);
+export { User };
+export default User;

@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { isAdmin } from "../middleware/isAdmin.js";
-import { getOverview } from "../controllers/analytics.controllers.js";
+import { verifyQR } from "../controllers/qr.controllers.js";
 
 const router = Router();
-router.get("/overview", requireAuth, isAdmin, getOverview);
+router.post("/verify", requireAuth, isAdmin, verifyQR);
 export default router;

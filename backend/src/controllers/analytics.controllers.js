@@ -1,7 +1,7 @@
-// backend/src/controllers/analytics.controllers.js
 import { Event } from "../models/events.models.js";
+import User from "../models/user.models.js";
 
-export const getOverview = async (req, res) => {
+export const getOverview = async (_req, res) => {
   try {
     const events = await Event.find({});
     const totalEvents = events.length;
@@ -17,13 +17,11 @@ export const getOverview = async (req, res) => {
       }
     }
 
-    // Monthly rollup by createdAt
     const monthly = {};
     for (const ev of events) {
       const d = new Date(ev.createdAt || ev.updatedAt || Date.now());
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       monthly[key] ??= { name: key, value: 0 };
-
       let evRevenue = 0;
       for (const t of ev.tickets || []) {
         evRevenue += Number(t.registrations || 0) * Number(t.price || 0);
@@ -32,7 +30,6 @@ export const getOverview = async (req, res) => {
     }
     const netSales = Object.values(monthly).sort((a, b) => a.name.localeCompare(b.name));
 
-    // Locations count
     const locationsMap = {};
     for (const ev of events) {
       const loc = ev.location || "Unknown";
@@ -40,19 +37,33 @@ export const getOverview = async (req, res) => {
     }
     const locations = Object.entries(locationsMap).map(([name, value]) => ({ name, value }));
 
-    // Simple engagement buckets derived from tickets (placeholder)
-    const engagement = [
-      { name: "Event - A", value: Math.max(50, Math.round(totalTickets * 0.2)) },
-      { name: "Event - B", value: Math.max(50, Math.round(totalTickets * 0.25)) },
-      { name: "Event - C", value: Math.max(50, Math.round(totalTickets * 0.15)) },
-      { name: "Event - D", value: Math.max(50, Math.round(totalTickets * 0.18)) },
-      { name: "Event - E", value: Math.max(50, Math.round(totalTickets * 0.22)) },
-    ];
+    const [byGenderAgg, byAgeAgg, byInterestAgg] = await Promise.all([
+      User.aggregate([
+        { $group: { _id: { $ifNull: ["$gender", "unknown"] }, count: { $sum: 1 } } },
+        { $project: { _id: 0, name: "$_id", value: "$count" } }
+      ]),
+      User.aggregate([
+        { $bucket: {
+            groupBy: "$age",
+            boundaries: [0, 18, 25, 35, 45, 60, 200],
+            default: "unknown",
+            output: { count: { $sum: 1 } }
+        }},
+        { $project: { _id: 0, name: "$_id", value: "$count" } }
+      ]),
+      User.aggregate([
+        { $unwind: { path: "$interests", preserveNullAndEmptyArrays: true } },
+        { $group: { _id: { $ifNull: ["$interests", "unknown"] }, count: { $sum: 1 } } },
+        { $project: { _id: 0, name: "$_id", value: "$count" } },
+        { $sort: { value: -1 } }, { $limit: 10 }
+      ])
+    ]);
 
     return res.status(200).json({
       success: true,
       totals: { events: totalEvents, tickets: totalTickets, revenue: totalRevenue },
-      charts: { netSales, locations, engagement },
+      charts: { netSales, locations, engagement: byInterestAgg },
+      demographics: { gender: byGenderAgg, age: byAgeAgg, interests: byInterestAgg }
     });
   } catch (err) {
     console.error("Analytics overview error:", err);

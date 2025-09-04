@@ -1,126 +1,163 @@
-import { User } from "../models/user.models.js"
-import bcrypt from 'bcrypt';
-import jwt from "jsonwebtoken"
+// backend/src/controllers/user.controllers.js
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import User from "../models/user.models.js"; // default import now works
 
+/* ================= helpers ================= */
 
+function signToken(user) {
+  const payload = { id: user._id, role: user.role };
+  const secret = process.env.JWT_SECRET || "dev-secret";
+  return jwt.sign(payload, secret, { expiresIn: "7d" });
+}
 
+function toSafeUser(u) {
+  if (!u) return null;
+  return {
+    id: u._id,
+    username: u.username,
+    email: u.email,
+    role: u.role,
+    createdAt: u.createdAt,
+    updatedAt: u.updatedAt,
+  };
+}
+
+/* ================= controllers ================= */
+
+/**
+ * POST /api/v1/user/register
+ * Body: { username, email, password, role? }
+ * Returns 201 + { success: true } so FE redirects to /login
+ */
 export const register = async (req, res) => {
   try {
-    console.log("Incoming body:", req.body);   // 👈 add this line
+    const { username = "", email = "", password = "", role = "user" } = req.body || {};
 
-    const { username, email, phoneNumber, password, role } = req.body;
-    if (!username || !email || !phoneNumber || !role || !password) {
-      return res.status(400).json({
-        message: "All fields are required",
-        success: false
-      });
+    if (!username.trim() || !email.trim() || !password) {
+      return res.status(400).json({ success: false, message: "All fields are required" });
     }
 
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(409).json({
-        message: "User already exists",
-        success: false
-      });
+    const exists = await User.findOne({ email: email.toLowerCase() });
+    if (exists) {
+      return res.status(409).json({ success: false, message: "Email already in use" });
     }
 
-    const newUser = await User.create({
-      username,
-      email,
-      phoneNumber,
-      password,  // will be hashed by pre-save hook
-      role,
+    const hash = await bcrypt.hash(password, 10);
+    const user = await User.create({
+      username: username.trim(),
+      email: email.toLowerCase(),
+      password: hash,
+      role: role === "admin" ? "admin" : "user",
     });
 
     return res.status(201).json({
-      message: "Successfully signed up",
       success: true,
-      user: newUser
+      message: "Account created successfully. Please sign in.",
+      user: toSafeUser(user),
     });
-  } catch (error) {
-    console.error("Register Error:", error);   
-    return res.status(500).json({
-      message: "Error in registration",
-      error: error.message
-    });
+  } catch (err) {
+    console.error("REGISTER ERROR:", err);
+    return res.status(500).json({ success: false, message: "Registration failed" });
   }
 };
 
-
-
+/**
+ * POST /api/v1/user/login
+ * Body: { email, password, role }
+ */
 export const login = async (req, res) => {
-    try {
-        const { email, password, role } = req.body;
-        if (!email || !password || !role) {
-            return res.status(400).json({
-                message: "All fields are required for login",
-                success: false
-            });
-        }
-
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(404).json({
-                message: "User not found",
-                success: false
-            });
-        }
-
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(401).json({
-                message: "Password not matched",
-                success: false
-            });
-        }
-
-        if (role !== user.role) {
-            return res.status(403).json({
-                message: "Account does not exist with current role",
-                success: false
-            });
-        }
-
-        const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
-
-        const userData = {
-            _id: user._id,
-            username: user.username,
-            email: user.email,
-            phoneNumber: user.phoneNumber,
-            role: user.role
-        };
-
-        return res.status(200)
-            .cookie("token", token, { maxAge: 24 * 60 * 60 * 1000, httpOnly: true, sameSite: 'strict' })
-            .json({
-                message: `Welcome back ${user.username}`,
-                user: userData,
-                token: token,
-                success: true
-            });
-
-    } catch (error) {
-        console.error("Login Error:", error);
-        return res.status(500).json({
-            message: "Error in user login",
-            error: error.message
-        });
+  try {
+    const { email = "", password = "", role } = req.body || {};
+    if (!email.trim() || !password) {
+      return res.status(400).json({ success: false, message: "Email and password are required" });
     }
-}
 
-
-
-export const logout = async (req, res) => {
-    try {
-        return res.status(200).cookie("token", " ", { maxAge: 0 }).json({
-            message: "LogOut Successfully",
-            success: true
-        })
-    } catch (error) {
-        res.status(500).json({
-            message: "Logout Error",
-            error: error.message
-        })
+    const user = await User.findOne({ email: email.toLowerCase() }).select("+password");
+    if (!user) {
+      return res.status(400).json({ success: false, message: "Invalid credentials" });
     }
-}
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: "Invalid credentials" });
+    }
+
+    if (role && role !== user.role) {
+      return res.status(403).json({
+        success: false,
+        message: "Role mismatch. Please choose the correct role.",
+      });
+    }
+
+    const token = signToken(user);
+
+    return res.status(200).json({
+      success: true,
+      message: "Logged in successfully",
+      token,
+      user: toSafeUser(user),
+    });
+  } catch (err) {
+    console.error("LOGIN ERROR:", err);
+    return res.status(500).json({ success: false, message: "Login failed" });
+  }
+};
+
+/**
+ * POST /api/v1/user/logout
+ */
+export const logout = async (_req, res) => {
+  try {
+    // If you used cookies for auth, you could clear them:
+    // res.clearCookie("token");
+    return res.status(200).json({ success: true, message: "Logged out successfully" });
+  } catch (err) {
+    console.error("LOGOUT ERROR:", err);
+    return res.status(500).json({ success: false, message: "Logout failed" });
+  }
+};
+
+/**
+ * GET /api/v1/user/me
+ */
+export const me = async (req, res) => {
+  try {
+    const userId = req.user?.id || req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+    const user = await User.findById(userId);
+    return res.status(200).json({ success: true, user: toSafeUser(user) });
+  } catch (err) {
+    console.error("ME ERROR:", err);
+    return res.status(500).json({ success: false, message: "Failed to fetch profile" });
+  }
+};
+
+/**
+ * PATCH /api/v1/user/profile (optional)
+ */
+export const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user?.id || req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { username, role } = req.body || {};
+    const updates = {};
+    if (typeof username === "string" && username.trim()) updates.username = username.trim();
+    if (role && (role === "admin" || role === "user")) updates.role = role;
+
+    const user = await User.findByIdAndUpdate(userId, updates, { new: true });
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated",
+      user: toSafeUser(user),
+    });
+  } catch (err) {
+    console.error("UPDATE PROFILE ERROR:", err);
+    return res.status(500).json({ success: false, message: "Failed to update profile" });
+  }
+};

@@ -1,137 +1,95 @@
 import React, { useState } from "react";
-import { Label } from "@radix-ui/react-label";
-import { Input } from "../components/ui/input";
-import { Link, useNavigate } from "react-router-dom";
-import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import toast from "react-hot-toast";
 
-function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState(""); // 👈 role selected on frontend
+export default function LoginPage() {
+  const nav = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({ email: "", password: "", role: "user" });
 
-  const navigate = useNavigate();
+  const onChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
 
-  const submitHandler = async (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post(
-        "http://localhost:5000/api/v1/user/login",
-        { email, password, role }, // 👈 send role too
-        {
-          headers: { "Content-Type": "application/json" },
-          withCredentials: true,
-        }
-      );
+      setLoading(true);
+      const { data } = await axios.post("http://localhost:5000/api/v1/user/login", form, {
+        withCredentials: true,
+      });
 
-if (response.data.success) {
-  toast.success(response.data.message);
+      if (data?.success) {
+        toast.success(data.message || "Welcome back!");
+        if (data.token) localStorage.setItem("userToken", JSON.stringify({ token: data.token }));
+        if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
 
-  const token = response.data.token;
-  const user  = response.data.user; // ← comes from backend
-
-  if (token) localStorage.setItem("userToken", JSON.stringify({ token }));
-  if (user)  localStorage.setItem("user", JSON.stringify(user));
-
-  const userRole = user.role;
-  if (userRole !== role) {
-    toast.error("Role mismatch! Please select the correct role.");
-    return;
-  }
-  if (userRole === "admin") {
-    navigate("/adminDashBoard");   // keep the casing consistent with App.jsx
-  } else if (userRole === "user") {
-    navigate("/userDashboard");
-  } else {
-    navigate("/");
-  }
-}
-    } catch (error) {
-      console.log(error);
-      toast.error(error.response?.data?.message || "Something went wrong");
+        // route by role
+        if (data.user?.role === "admin") nav("/adminDashBoard");
+        else nav("/browse"); // or /userDashBoard if you prefer
+      } else {
+        toast.error(data?.message || "Login failed");
+      }
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Login failed");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div>
-      <div className="flex justify-between items-center p-6">
-        <div className="flex items-center">
-          <h1 className="text-3xl font-bold text-blue-600">EventX-studio</h1>
-        </div>
+    <div className="min-h-screen flex items-center justify-center bg-black text-white p-6">
+      <form onSubmit={onSubmit} className="w-full max-w-md space-y-4 bg-gray-900 p-6 rounded-xl">
+        <h1 className="text-xl font-semibold">Sign in</h1>
+
         <div>
-          <Link to={"/"} className="bg-blue-500 px-4 py-2 rounded-md text-white">
-            Home
-          </Link>
+          <label className="block text-sm text-gray-300">Email</label>
+          <input
+            type="email"
+            name="email"
+            value={form.email}
+            onChange={onChange}
+            className="mt-1 w-full rounded-lg bg-gray-800 border border-gray-700 p-2"
+            required
+          />
         </div>
-      </div>
-      <div className="flex items-center justify-center max-w-7xl mx-auto">
-        <form
-          onSubmit={submitHandler}
-          className="w-1/2 border border-gray-200 rounded-md p-4 my-10"
+
+        <div>
+          <label className="block text-sm text-gray-300">Password</label>
+          <input
+            type="password"
+            name="password"
+            value={form.password}
+            onChange={onChange}
+            className="mt-1 w-full rounded-lg bg-gray-800 border border-gray-700 p-2"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm text-gray-300">Role</label>
+          <select
+            name="role"
+            value={form.role}
+            onChange={onChange}
+            className="mt-1 w-full rounded-lg bg-gray-800 border border-gray-700 p-2"
+          >
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 px-4 py-2"
         >
-          <h1 className="font-bold text-xl mb-5">Login</h1>
+          {loading ? "Signing in…" : "Sign in"}
+        </button>
 
-          <div className="my-2">
-            <Label>Email</Label>
-            <Input
-              type="email"
-              placeholder="demo@gmail.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="my-2">
-            <Label>Password</Label>
-            <Input
-              type="password"
-              placeholder="********"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-
-          {/* 👇 Role Selection */}
-          <div className="flex items-center gap-6 my-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="role"
-                value="user"
-                checked={role === "user"}
-                onChange={(e) => setRole(e.target.value)}
-              />
-              <span>User</span>
-            </label>
-
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="role"
-                value="admin"
-                checked={role === "admin"}
-                onChange={(e) => setRole(e.target.value)}
-              />
-              <span>Admin</span>
-            </label>
-          </div>
-
-          <button className="w-full bg-blue-700 text-white hover:bg-blue-900 p-2 rounded-md cursor-pointer mb-2">
-            Login
-          </button>
-
-          <span>
-            Don't have an account?{" "}
-            <Link to={"/register"} className="text-blue-600 my-2">
-              Sign up
-            </Link>
-          </span>
-        </form>
-      </div>
+        <p className="text-xs text-gray-400">
+          Don’t have an account? <a href="/register" className="underline">Create one</a>
+        </p>
+      </form>
     </div>
   );
 }
-
-export default Login;
