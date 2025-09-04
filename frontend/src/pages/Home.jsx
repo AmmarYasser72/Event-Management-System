@@ -122,7 +122,7 @@ const Homepage = () => {
       {/* Hero Section */}
       <section className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-5xl font-bold mb-6">Discover Amazing Events</h2>
+          <h1 className="text-5xl font-bold mb-6">Event Management System </h1>
           <p className="text-xl mb-8 opacity-90">
             Find and book tickets for conferences, concerts, sports events, and more
           </p>
