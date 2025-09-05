@@ -31,9 +31,9 @@ const Homepage = () => {
       description: "Join industry leaders for cutting-edge tech discussions",
       date: "2025-09-15",
       time: "09:00",
-      location: "Convention Center, Mumbai",
+      location: "computer and data science , alexandria",
       category: "Conference",
-      price: 2500,
+      price: 150,
       rating: 4.8,
       attendees: 250,
       image: "https://imgs.search.brave.com/4SKT4JFe4XymdQsxA2eBq5fcSDgx0qR1qqgZx7ijJPc/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly93d3cu/bW1jY29udmVydC5j/b20vYmxvZy93cC1j/b250ZW50L3VwbG9h/ZHMvMjAyMy8xMC9v/ZG9vLWV4cGVyaWVu/Y2UzLmpwZw"
@@ -44,9 +44,9 @@ const Homepage = () => {
       description: "3-day music extravaganza with top artists",
       date: "2025-10-20",
       time: "18:00",
-      location: "Open Grounds, Delhi",
+      location: "marasi , north coast",
       category: "Concert",
-      price: 3500,
+      price: 500,
       rating: 4.9,
       attendees: 500,
       image: "https://imgs.search.brave.com/ckQZWwGYMU6hzNODqmEJq_vlcT8o1CdNv6c_vHPfLU0/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9tZWRp/YS5nZXR0eWltYWdl/cy5jb20vaWQvMjAz/OTMyMjcwNS9waG90/by9tYW4tcGhvdG9n/cmFwaGluZy10aHJv/dWdoLXNtYXJ0LXBo/b25lLXdpdGgtZnJp/ZW5kcy5qcGc_cz02/MTJ4NjEyJnc9MCZr/PTIwJmM9OGFvZW1j/dF95TlRzVlRDSmhu/RWRaZTVQOTBMc0lu/amRwcWpPQkVLYlN4/OD0"
@@ -57,25 +57,25 @@ const Homepage = () => {
       description: "48-hour coding challenge for innovators",
       date: "2025-09-25",
       time: "10:00",
-      location: "Tech Hub, Bangalore",
+      location: "Tech Hub, alexandria",
       category: "Hackathon",
-      price: 500,
+      price: 700,
       rating: 4.7,
       attendees: 100,
       image: "https://imgs.search.brave.com/hflGWrfEqFxhzxbz2sVxl8ixuo1KUXRdH1EyD9pzzKo/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9tZWRp/YS5nZXR0eWltYWdl/cy5jb20vaWQvMTQy/NTIwMTI4OC9waG90/by9hZnJpY2FuLXdv/bWFuLWFkZHJlc3Np/bmctYXVkaWVuY2Ut/YXQtc3RhcnR1cC1s/YXVuY2gtZXZlbnQu/anBnP3M9NjEyeDYx/MiZ3PTAmaz0yMCZj/PXFEVTYxcDlLNGxt/cWVvR0lVQmd2MXl3/MVBOZ1dmTjhNRFI3/cFdubGtFSzg9"
     },
     {
       id: 4,
-      title: "Cricket Championship",
-      description: "Regional cricket tournament finals",
-      date: "2025-09-30",
-      time: "14:00",
-      location: "Sports Complex, Chennai",
+      title: "Alahly vs Zamalek",
+      description: "final match of african champions league",
+      date: "2020-11-27",
+      time: "9:00 PM",
+      location: "Cairo Stadium, Cairo",
       category: "Sports",
-      price: 1500,
-      rating: 4.6,
-      attendees: 300,
-      image: "https://imgs.search.brave.com/OyzqnrUYRAFnzKcNuTc0s3xIB8hWLwIgtdUQtLRYoI4/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9tZWRp/YS5nZXR0eWltYWdl/cy5jb20vaWQvNzM1/NTQ3NzAvcGhvdG8v/c3VzcGVuZGVkLXBs/YXktZHVlLXRvLXJh/aW4tZHVyaW5nLWEt/Y3JpY2tldC1nYW1l/LmpwZz9zPTYxMng2/MTImdz0wJms9MjAm/Yz1seWc5YkQxaG5O/ZEMzNWV6RlNuYlFG/VURhZUlaVjd6QjFC/QklSWWZPRlljPQ"
+      price: 200,
+      rating: 5.0,
+      attendees: 1000,
+      image: "https://gate.ahram.org.eg/Media/News/2020/11/27/19_2020-637421105945269056-526.jpg"
     }
   ];
 
@@ -232,7 +232,7 @@ const Homepage = () => {
                       <span className="text-sm text-gray-600 ml-1">{event.rating}</span>
                       <span className="text-sm text-gray-400 ml-2">({event.attendees})</span>
                     </div>
-                    <span className="text-lg font-bold text-blue-600">₹{event.price}</span>
+                    <span className="text-lg font-bold text-blue-600">EGP {event.price}</span>
                   </div>
                   
                   <button onClick={handleBooking} className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors">
