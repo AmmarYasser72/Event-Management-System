@@ -1,76 +1,93 @@
-// backend/src/controllers/events.board.controllers.js
 import { Event } from "../models/events.models.js";
+import { serializeEvent } from "../utils/eventSerializer.js";
 
-// combine date + time strings to Date
-function toDate(d, t) {
-  if (!d || !t) return null;
-  const x = new Date(`${d}T${t}`);
-  return isNaN(x.getTime()) ? null : x;
+function toDateTime(dateValue, timeValue) {
+  if (!dateValue || !timeValue) {
+    return null;
+  }
+
+  const isoDate =
+    dateValue instanceof Date
+      ? dateValue.toISOString().slice(0, 10)
+      : String(dateValue).slice(0, 10);
+
+  const dateTime = new Date(`${isoDate}T${String(timeValue).slice(0, 5)}:00`);
+  return Number.isNaN(dateTime.getTime()) ? null : dateTime;
 }
 
-function computeStatus(ev) {
+function computeStatus(event) {
   const now = new Date();
-  const start = toDate(ev.startDate, ev.startTime);
-  const end = toDate(ev.endDate, ev.endTime);
+  const end = toDateTime(event.endDate, event.endTime);
 
-  if (end && end < now) return "closed";
-  // treat unpublished/unapproved as pending
-  if (!ev.published || ev.publishEvent === false) return "pending";
+  if (end && end < now) {
+    return "closed";
+  }
+
+  if (event.publishEvent === false) {
+    return "pending";
+  }
+
   return "upcoming";
 }
 
-function ticketAgg(ev) {
+function ticketAgg(event) {
   let sold = 0;
   let capacity = 0;
   let revenue = 0;
-  for (const t of ev.tickets || []) {
-    const reg = Number(t.registrations || 0);
-    const price = Number(t.price || 0);
-    const max = Number(t.maxTickets || 0);
-    sold += reg;
-    capacity += max;
-    revenue += reg * price;
+
+  for (const ticket of event.tickets || []) {
+    const registrations = Number(ticket.registrations || 0);
+    const price = Number(ticket.price || 0);
+    const maxTickets = Number(ticket.maxTickets || 0);
+    sold += registrations;
+    capacity += maxTickets;
+    revenue += registrations * price;
   }
+
   return { sold, capacity, revenue };
 }
 
-function iconForCategory(cat) {
-  switch ((cat || "").toLowerCase()) {
-    case "music": return "🎵";
-    case "sports matches": return "🏟️";
-    case "exhibition": return "🖼️";
-    case "conference": return "🎤";
-    default: return "🎫";
+function iconForCategory(category) {
+  switch ((category || "").toLowerCase()) {
+    case "music":
+      return "🎵";
+    case "sports matches":
+      return "🏟️";
+    case "exhibition":
+      return "🖼️";
+    case "conference":
+      return "🎤";
+    default:
+      return "🎫";
   }
 }
 
 export const getEventBoard = async (req, res) => {
   try {
-    // If you want only this admin’s events: { organizer: req.user._id }
-    const events = await Event.find({}).sort({ createdAt: -1 });
-
+    const events = await Event.find({ organizer: req.user._id }).sort({ createdAt: -1 });
     const board = { upcoming: [], pending: [], closed: [] };
 
-    for (const ev of events) {
-      const { sold, capacity, revenue } = ticketAgg(ev);
-      const status = computeStatus(ev);
+    for (const eventDocument of events) {
+      const event = serializeEvent(eventDocument);
+      const { sold, capacity, revenue } = ticketAgg(eventDocument);
+      const status = computeStatus(eventDocument);
 
       board[status].push({
-        id: String(ev._id),
-        title: ev.eventName,
-        venue: ev.location,
-        date: `${ev.startDate ?? "-"} ${ev.endDate ? `→ ${ev.endDate}` : ""}`.trim(),
-        time: `${ev.startTime ?? "-"} ${ev.endTime ? `→ ${ev.endTime}` : ""}`.trim(),
+        id: event.id,
+        title: event.title,
+        venue: event.location,
+        date: `${event.startDate}${event.endDate ? ` -> ${event.endDate}` : ""}`,
+        time: `${event.startTime}${event.endTime ? ` -> ${event.endTime}` : ""}`,
         revenue,
         sold,
         capacity,
-        icon: iconForCategory(ev.category),
+        icon: iconForCategory(event.category),
       });
     }
 
     return res.status(200).json({ success: true, board });
-  } catch (err) {
-    console.error("board error:", err);
-    return res.status(500).json({ success: false, message: err.message });
+  } catch (error) {
+    console.error("board error:", error);
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
