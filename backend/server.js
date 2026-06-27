@@ -11,6 +11,9 @@ const morgan = require('morgan');
 const hpp = require('hpp');
 const responseTime = require('response-time');
 const crypto = require('crypto');
+dotenv.config();
+const validateEnv = require('./config/validateEnv');
+validateEnv();
 const logger = require('./utils/logger');
 const Idempotency = require('./models/Idempotency');
 const errorHandler = require('./middleware/errorHandler');
@@ -21,11 +24,6 @@ const {
   csrfProtection,
   issueCsrfToken,
 } = require('./middleware/csrfProtection');
-
-dotenv.config();
-
-const validateEnv = require('./config/validateEnv');
-validateEnv();
 
 const config = require('./config');
 const paymentsService = require('./services/paymentsService');

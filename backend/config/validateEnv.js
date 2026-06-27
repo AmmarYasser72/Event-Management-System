@@ -1,8 +1,55 @@
+const crypto = require('crypto');
 const logger = require('../utils/logger');
 
+const DEV_DEFAULTS = {
+  NODE_ENV: 'development',
+  MONGO_URI: 'mongodb://127.0.0.1:27017/eventx-studio',
+  FRONTEND_URL: 'http://localhost:5173',
+  FRONTEND_ORIGIN: 'http://localhost:5173',
+};
+
+const SECRET_DEFAULT_KEYS = [
+  'JWT_SECRET',
+  'JWT_REFRESH_SECRET',
+  'CSRF_SECRET',
+  'COOKIE_SIGNING_SECRET',
+  'PAYMENT_HMAC_SECRET',
+  'QR_HMAC_SECRET',
+  'SESSION_ENCRYPTION_KEY',
+];
+
+const applyDevelopmentDefaults = () => {
+  const appliedDefaults = [];
+
+  Object.entries(DEV_DEFAULTS).forEach(([key, value]) => {
+    if (!process.env[key]) {
+      process.env[key] = value;
+      appliedDefaults.push(key);
+    }
+  });
+
+  SECRET_DEFAULT_KEYS.forEach((key) => {
+    if (!process.env[key]) {
+      process.env[key] = crypto.randomBytes(24).toString('hex');
+      appliedDefaults.push(key);
+    }
+  });
+
+  if (appliedDefaults.length > 0) {
+    logger.warn(
+      `Applied development defaults for: ${appliedDefaults.join(', ')}. ` +
+      'Create a .env file to override these values.',
+    );
+  }
+};
+
 const validateEnv = () => {
+  const initialNodeEnv = process.env.NODE_ENV || 'development';
+  if (initialNodeEnv === 'development') {
+    applyDevelopmentDefaults();
+  }
+
   const requiredVars = [
-    'NODE_ENV',
     'MONGO_URI',
     'JWT_SECRET',
     'JWT_REFRESH_SECRET',
