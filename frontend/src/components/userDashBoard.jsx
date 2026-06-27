@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   Calendar, 
   MapPin, 
   Clock, 
@@ -15,7 +15,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import axios from 'axios';
+import { api, clearStoredAuth, getStoredAuth } from '../lib/api';
 
 const UserDashboard = () => {
   const navigate = (path) => {
@@ -95,25 +95,25 @@ const UserDashboard = () => {
 
   const fetchEvents = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/events/all');
+      const res = await api.get('/events/all');
       const backendEvents = res.data?.events || [];
 
       // Format backend events to match our structure
       const formattedBackendEvents = backendEvents.map(event => ({
-        id: event._id,
-        title: event.eventName || event.title,
+        id: event.id || event._id,
+        title: event.title || event.eventName,
         description: event.description || '',
         category: event.category || 'Other',
         date: event.startDate || event.date,
-        time: event.time || '10:00 AM',
+        time: event.startTime || event.time || '10:00 AM',
         location: event.location || 'Online',
-        image: event.photos?.[0] || 'https://via.placeholder.com/400x250',
-        organizer: event.organizer || 'Admin',
-        price: event.price || 0,
-        originalPrice: event.originalPrice || event.price || 0,
+        image: event.images?.[0] || event.photos?.[0] || 'https://via.placeholder.com/400x250',
+        organizer: event.organizer?.name || 'Admin',
+        price: event.tickets?.[0]?.price || 0,
+        originalPrice: event.tickets?.[0]?.price || 0,
         rating: event.rating || 4.5,
-        attendees: event.attendees || 0,
-        maxAttendees: event.maxAttendees || 100,
+        attendees: (event.tickets || []).reduce((sum, ticket) => sum + Number(ticket.sold || ticket.registrations || 0), 0),
+        maxAttendees: (event.tickets || []).reduce((sum, ticket) => sum + Number(ticket.maxTickets || ticket.available || 0), 0) || 100,
         tags: event.tags || [],
         trending: event.trending || false,
         featured: event.featured || false
@@ -137,12 +137,8 @@ const UserDashboard = () => {
   useEffect(() => {
     fetchEvents();
 
-    // Load user from localStorage
-    const userToken = localStorage.getItem('userToken');
-    if (userToken) {
-      const userData = JSON.parse(userToken);
-      setUser(userData.user);
-    }
+    const { user: storedUser } = getStoredAuth();
+    setUser(storedUser);
   }, []);
 
   useEffect(() => {
@@ -183,7 +179,7 @@ const UserDashboard = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('userToken');
+    clearStoredAuth();
     toast.success("Logout Successfully");
     navigate('/');
   };
@@ -291,7 +287,7 @@ const UserDashboard = () => {
             <div className="flex items-center gap-4">
               <button className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700"><Bell size={20} /></button>
               <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-300">Welcome, {user?.name || 'User'}</span>
+                <span className="text-sm text-gray-300">Welcome, {user?.username || user?.email?.split('@')[0] || 'User'}</span>
                 <button onClick={() => navigate('/profile')} className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700"><User size={20} /></button>
                 <button onClick={handleLogout} className="p-2 text-red-400 hover:text-red-300 rounded-lg hover:bg-red-900/20"><LogOut size={20} /></button>
               </div>
