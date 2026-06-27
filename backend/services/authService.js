@@ -137,7 +137,16 @@ const rotateSessionTokens = (user, sessionId) => {
 
 // Register
 exports.registerUser = async (userData, deviceInfo) => {
-  const { name, email, password, role } = userData;
+  const {
+    name,
+    email,
+    password,
+    role,
+    phone,
+    age,
+    gender,
+    location,
+  } = userData;
 
   if (isDisposableEmail(email)) {
     const error = new Error('Disposable email addresses are not allowed.');
@@ -159,7 +168,7 @@ exports.registerUser = async (userData, deviceInfo) => {
     throw error;
   }
 
-  const allowedRoles = ['user'];
+  const allowedRoles = ['user', 'organizer'];
   const safeRole = allowedRoles.includes(role) ? role : 'user';
 
   const user = new User({
@@ -167,6 +176,10 @@ exports.registerUser = async (userData, deviceInfo) => {
     email: email.toLowerCase(),
     password,
     role: safeRole,
+    phone,
+    age,
+    gender,
+    location,
   });
 
   const verificationToken = user.generateEmailVerificationToken();

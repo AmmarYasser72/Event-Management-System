@@ -122,6 +122,20 @@ const registerValidator = [
     .optional()
     .isInt({ min: 13, max: 120 })
     .withMessage('Age must be between 13 and 120'),
+  stringField('phone', 'Phone', { optional: true, max: 25 }),
+  body('gender')
+    .optional()
+    .isString()
+    .withMessage('Gender must be a string')
+    .bail()
+    .isIn(['male', 'female', 'other', 'prefer-not-to-say'])
+    .withMessage('Invalid gender value'),
+  body('location')
+    .optional()
+    .custom((value) => isPlainObject(value))
+    .withMessage('Location must be an object'),
+  stringField('location.city', 'Location city', { optional: true, max: 100 }),
+  stringField('location.country', 'Location country', { optional: true, max: 100 }),
   validate,
 ];
 
