@@ -12,11 +12,11 @@ const Homepage = () => {
 
   const handleBooking = async () => {
     try {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("userToken");
         if(!token) {
             toast.error("please Login First !!! ");
         } else {
-            navigate("/eventDetails");
+            navigate("/browse");
         }
     } catch (error) {
         console.log(error);
@@ -102,10 +102,10 @@ const Homepage = () => {
               <h1 className="text-3xl font-bold text-blue-600">EventX-studio</h1>
             </div>
             <nav className="hidden md:flex space-x-8">
-              <Link href="/" className="text-gray-700 hover:text-blue-600 font-medium">Home</Link>
-              <Link href="#" className="text-gray-700 hover:text-blue-600 font-medium">Events</Link>
-              <Link href="#" className="text-gray-700 hover:text-blue-600 font-medium">Create Event</Link>
-              <Link href="#" className="text-gray-700 hover:text-blue-600 font-medium">My Tickets</Link>
+              <Link to="/" className="text-gray-700 hover:text-blue-600 font-medium">Home</Link>
+              <Link to="/browse" className="text-gray-700 hover:text-blue-600 font-medium">Events</Link>
+              <Link to="/login" className="text-gray-700 hover:text-blue-600 font-medium">Create Event</Link>
+              <Link to="/my-tickets" className="text-gray-700 hover:text-blue-600 font-medium">My Tickets</Link>
             </nav>
             <div className="flex items-center space-x-4">
               <Link to={"/login"} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
