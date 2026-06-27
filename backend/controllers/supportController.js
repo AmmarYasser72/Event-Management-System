@@ -1,0 +1,234 @@
+const SupportTicket = require('../models/SupportTicket');
+const logger = require('../utils/logger');
+
+// @desc    Get all support tickets for the authenticated user
+// @access  Private
+exports.getTickets = async (req, res) => {
+    try {
+        const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
+        const skip = (page - 1) * limit;
+        const query = { userId: req.user._id };
+
+        const [tickets, total] = await Promise.all([
+            SupportTicket.find(query)
+                .populate('assignedTo', 'name email')
+                .populate('responses.userId', 'name email')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit),
+            SupportTicket.countDocuments(query)
+        ]);
+
+        res.json({
+            success: true,
+            data: {
+                tickets: tickets.map(ticket => ({
+                    id: ticket._id,
+                    ticketNumber: ticket.ticketNumber,
+                    subject: ticket.subject,
+                    description: ticket.description,
+                    category: ticket.category,
+                    priority: ticket.priority,
+                    status: ticket.status,
+                    createdAt: ticket.createdAt,
+                    updatedAt: ticket.updatedAt,
+                    assignedTo: ticket.assignedTo,
+                    attachments: ticket.attachments,
+                    responses: ticket.responses
+                })),
+                pagination: {
+                    current: page,
+                    pages: Math.max(1, Math.ceil(total / limit)),
+                    total,
+                    limit
+                }
+            }
+        });
+    } catch (error) {
+        logger.error('Error fetching support tickets:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch support tickets'
+        });
+    }
+};
+
+// @desc    Create a new support ticket
+// @access  Private
+exports.createTicket = async (req, res) => {
+    try {
+        const { subject, description, category, priority, attachments } = req.body;
+
+        const ticket = new SupportTicket({
+            subject,
+            description,
+            category: category || 'general',
+            priority: priority || 'medium',
+            userId: req.user._id,
+            attachments: attachments || []
+        });
+
+        await ticket.save();
+
+        res.status(201).json({
+            success: true,
+            message: 'Support ticket created successfully',
+            data: {
+                ticket: {
+                    id: ticket._id,
+                    ticketNumber: ticket.ticketNumber,
+                    subject: ticket.subject,
+                    description: ticket.description,
+                    category: ticket.category,
+                    priority: ticket.priority,
+                    status: ticket.status,
+                    createdAt: ticket.createdAt,
+                    attachments: ticket.attachments
+                }
+            }
+        });
+    } catch (error) {
+        logger.error('Error creating support ticket:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to create support ticket'
+        });
+    }
+};
+
+// @desc    Get a specific support ticket
+// @access  Private
+exports.getTicketById = async (req, res) => {
+    try {
+        const ticket = await SupportTicket.findOne({
+            _id: req.params.id,
+            userId: req.user._id
+        })
+            .populate('assignedTo', 'name email')
+            .populate('responses.userId', 'name email');
+
+        if (!ticket) {
+            return res.status(404).json({
+                success: false,
+                message: 'Support ticket not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: {
+                ticket: {
+                    id: ticket._id,
+                    ticketNumber: ticket.ticketNumber,
+                    subject: ticket.subject,
+                    description: ticket.description,
+                    category: ticket.category,
+                    priority: ticket.priority,
+                    status: ticket.status,
+                    createdAt: ticket.createdAt,
+                    updatedAt: ticket.updatedAt,
+                    assignedTo: ticket.assignedTo,
+                    attachments: ticket.attachments,
+                    responses: ticket.responses
+                }
+            }
+        });
+    } catch (error) {
+        logger.error('Error fetching support ticket:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch support ticket'
+        });
+    }
+};
+
+// @desc    Add a response to a support ticket
+// @access  Private
+exports.addTicketResponse = async (req, res) => {
+    try {
+        const { message } = req.body;
+
+        const ticket = await SupportTicket.findOne({
+            _id: req.params.id,
+            userId: req.user._id
+        });
+
+        if (!ticket) {
+            return res.status(404).json({
+                success: false,
+                message: 'Support ticket not found'
+            });
+        }
+
+        ticket.responses.push({
+            message,
+            userId: req.user._id,
+            isStaff: false
+        });
+
+        // Update ticket status if it was resolved/closed
+        if (ticket.status === 'resolved' || ticket.status === 'closed') {
+            ticket.status = 'open';
+        }
+
+        await ticket.save();
+
+        res.json({
+            success: true,
+            message: 'Response added successfully'
+        });
+    } catch (error) {
+        logger.error('Error adding response to support ticket:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to add response'
+        });
+    }
+};
+
+// @desc    Update support ticket status
+// @access  Private (staff)
+exports.updateTicketStatus = async (req, res) => {
+    try {
+        const { status } = req.body;
+
+        const ticket = await SupportTicket.findById(req.params.id);
+
+        if (!ticket) {
+            return res.status(404).json({
+                success: false,
+                message: 'Support ticket not found'
+            });
+        }
+
+        // Status changes are restricted to staff/admin workflow.
+        // Route is protected by requireAdmin; keep a defense-in-depth check here.
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Access denied' });
+        }
+
+        // FIX H-04 — Add enum validation for ticket status to preserve state machine contract
+        const VALID_STATUSES = ['open', 'in-progress', 'resolved', 'closed'];
+        if (!VALID_STATUSES.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid status'
+            });
+        }
+
+        ticket.status = status;
+        await ticket.save();
+
+        res.json({
+            success: true,
+            message: 'Ticket status updated successfully'
+        });
+    } catch (error) {
+        logger.error('Error updating support ticket status:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update ticket status'
+        });
+    }
+};
