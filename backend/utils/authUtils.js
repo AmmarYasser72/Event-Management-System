@@ -57,7 +57,6 @@ const isDisposableEmail = (email = '') =>
 const validatePasswordStrength = (password = '') => {
   const errors = [];
   if (password.length !== 6) errors.push('Exactly 6 characters');
-  if (!/^\d+$/.test(password)) errors.push('Numbers only');
 
   return errors;
 };

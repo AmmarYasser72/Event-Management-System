@@ -35,10 +35,6 @@ const ResetPasswordPage = () => {
             setError('Password must be exactly 6 characters.');
             return;
         }
-        if (!/^\d+$/.test(password)) {
-            setError('Password must contain numbers only.');
-            return;
-        }
 
         setIsLoading(true);
         const result = await resetPassword(token, password);
@@ -77,7 +73,7 @@ const ResetPasswordPage = () => {
                             EX
                         </div>
                         <h1 className="text-2xl font-bold text-gray-900">Set New Password</h1>
-                        <p className="text-gray-500 text-sm mt-1">Choose a 6-digit password for your account</p>
+                        <p className="text-gray-500 text-sm mt-1">Choose a 6-character password for your account</p>
                     </div>
 
                     {error && (
