@@ -1,0 +1,828 @@
+/**
+ * Tickets Service
+ *
+ * Encapsulates all ticket-related database operations.
+ * Controllers should delegate to this service instead of
+ * querying Mongoose models directly.
+ */
+
+const mongoose = require('mongoose');
+const crypto = require('crypto');
+const QRCode = require('qrcode');
+const Ticket = require('../models/Ticket');
+const Event = require('../models/Event');
+const Coupon = require('../models/Coupon');
+const Payment = require('../models/Payment');
+const config = require('../config');
+const logger = require('../utils/logger');
+const { withTransactionRetry } = require('../utils/transaction');
+const {
+  toMinor,
+  fromMinor,
+  normalizeCurrency,
+  paymentAmountMatchOrLegacy,
+} = require('../utils/money');
+
+const QR_OPTIONS = {
+  errorCorrectionLevel: 'M',
+  type: 'image/png',
+  quality: 0.92,
+  margin: 1,
+  color: { dark: '#000000', light: '#FFFFFF' },
+};
+
+class TicketsService {
+  async performAtomicCheckIn(ticketId, checkInBy) {
+    const checkedInAt = new Date();
+    const updated = await Ticket.findOneAndUpdate(
+      {
+        _id: ticketId,
+        status: 'booked',
+        'checkIn.isCheckedIn': { $ne: true },
+      },
+      {
+        $set: {
+          status: 'used',
+          'checkIn.isCheckedIn': true,
+          'checkIn.checkInTime': checkedInAt,
+          'checkIn.checkInBy': checkInBy,
+        },
+      },
+      { new: true }
+    )
+      .populate('event', 'title date organizer')
+      .populate('user', 'name email');
+
+    if (updated) {
+      return updated;
+    }
+
+    const latest = await Ticket.findById(ticketId).select('status checkIn');
+    if (!latest) {
+      throw Object.assign(new Error('Ticket not found'), { status: 404 });
+    }
+    if (latest.checkIn?.isCheckedIn || latest.status === 'used') {
+      throw Object.assign(new Error('Ticket is already checked in'), { status: 409 });
+    }
+    if (latest.status === 'cancelled') {
+      throw Object.assign(new Error('Cannot check in a cancelled ticket'), { status: 409 });
+    }
+    throw Object.assign(new Error('Ticket is not eligible for check-in'), { status: 409 });
+  }
+
+  /**
+   * Calculate the expected payment amount after applying a coupon.
+   */
+  async calculateExpectedAmount(event, couponCode) {
+    const cur = normalizeCurrency(event.pricing?.currency || 'USD');
+    const baseMinor = toMinor(Number(event.pricing?.amount || 0), cur);
+    if (!couponCode) return fromMinor(baseMinor, cur);
+
+    const coupon = await Coupon.findOne({ code: couponCode.toUpperCase().trim(), isActive: true });
+    if (!coupon) {
+      throw Object.assign(new Error('Coupon is invalid or expired'), { status: 400 });
+    }
+
+    if (coupon.expiresAt && new Date() > coupon.expiresAt) {
+      throw Object.assign(new Error('Coupon has expired'), { status: 400 });
+    }
+
+    if (coupon.maxUses !== null && coupon.usedCount >= coupon.maxUses) {
+      throw Object.assign(new Error('Coupon usage limit reached'), { status: 400 });
+    }
+
+    if (coupon.applicableEvents && coupon.applicableEvents.length > 0) {
+      const matchesEvent = coupon.applicableEvents.some((id) => id.toString() === event._id.toString());
+      if (!matchesEvent) {
+        throw Object.assign(new Error('Coupon is not applicable to this event'), { status: 400 });
+      }
+    }
+
+    let discountMinor = 0;
+    if (coupon.discountType === 'percentage') {
+      discountMinor = Math.min(baseMinor, Math.round((baseMinor * coupon.discountValue) / 100));
+    } else {
+      discountMinor = Math.min(baseMinor, toMinor(coupon.discountValue || 0, cur));
+    }
+
+    return fromMinor(Math.max(0, baseMinor - discountMinor), cur);
+  }
+
+  /**
+   * Generate a QR code data-URL for a ticket.
+   */
+  async generateQRCode(qrCodeData) {
+    return QRCode.toDataURL(qrCodeData, QR_OPTIONS);
+  }
+
+  /**
+   * Find and validate an event for booking.
+   */
+  async findBookableEvent(eventId) {
+    const event = await Event.findById(eventId);
+    if (!event) throw Object.assign(new Error('Event not found'), { status: 404 });
+    if (event.status !== 'published') throw Object.assign(new Error('Event is not available for booking'), { status: 400 });
+    if (event.date < new Date()) throw Object.assign(new Error('Cannot book tickets for past events'), { status: 400 });
+    return event;
+  }
+
+  /**
+   * Check if a user already has a ticket for an event.
+   */
+  async hasExistingTicket(eventId, userId) {
+    return Ticket.findOne({
+      event: eventId,
+      user: userId,
+      status: { $in: ['booked', 'used'] },
+    });
+  }
+
+  /**
+   * Get paginated tickets for a user.
+   */
+  async getMyTickets(userId, { page = 1, limit = 10, status } = {}) {
+    page = parseInt(page) || 1;
+    limit = Math.min(parseInt(limit) || 10, 100);
+    const skip = (page - 1) * limit;
+
+    const query = { user: userId };
+    if (status) query.status = status;
+
+    const [tickets, total] = await Promise.all([
+      Ticket.find(query)
+        .populate('event', 'title date venue pricing status')
+        .sort({ bookingDate: -1 })
+        .skip(skip)
+        .limit(limit),
+      Ticket.countDocuments(query),
+    ]);
+
+    return {
+      tickets,
+      pagination: { current: page, pages: Math.ceil(total / limit), total },
+    };
+  }
+
+  /**
+   * Get tickets for events owned by an organizer.
+   */
+  async getOrganizerTickets(organizerId, { page = 1, limit = 50, eventId, status } = {}) {
+    page = parseInt(page) || 1;
+    limit = Math.min(parseInt(limit) || 50, 200);
+    const skip = (page - 1) * limit;
+
+    const events = await Event.find({ organizer: organizerId }).select('_id');
+    const eventIds = events.map(e => e._id);
+
+    const query = { event: { $in: eventIds } };
+    if (eventId) {
+      if (!eventIds.some(id => id.toString() === eventId)) {
+        throw Object.assign(new Error('Not authorized to view tickets for this event'), { status: 403 });
+      }
+      query.event = eventId;
+    }
+    if (status) query.status = status;
+
+    const [tickets, total] = await Promise.all([
+      Ticket.find(query)
+        .populate('event', 'title date venue')
+        .populate('user', 'name email')
+        .sort({ bookingDate: -1 })
+        .skip(skip)
+        .limit(limit),
+      Ticket.countDocuments(query),
+    ]);
+
+    return {
+      tickets,
+      pagination: { current: page, pages: Math.max(1, Math.ceil(total / limit)), total },
+    };
+  }
+
+  /**
+   * Get all tickets with statistics (admin view).
+   */
+  async getTicketsAdmin({ page = 1, limit = 50, eventId, status } = {}) {
+    page = parseInt(page) || 1;
+    limit = Math.min(parseInt(limit) || 50, 200);
+    const skip = (page - 1) * limit;
+
+    const query = {};
+    if (eventId) query.event = eventId;
+    if (status) query.status = status;
+
+    const [tickets, total, statusCounts, orphanCount, globalTotal] = await Promise.all([
+      Ticket.find(query)
+        .populate('event', 'title date venue')
+        .populate('user', 'name email')
+        .sort({ bookingDate: -1 })
+        .skip(skip)
+        .limit(limit),
+      Ticket.countDocuments(query),
+      Ticket.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+      Ticket.countDocuments({ $or: [{ event: { $exists: false } }, { event: null }] }),
+      Ticket.countDocuments({}),
+    ]);
+
+    const statusCountsObj = {};
+    statusCounts.forEach(item => { statusCountsObj[item._id] = item.count; });
+
+    return {
+      tickets,
+      statistics: { total: globalTotal, statusCounts: statusCountsObj, orphanCount },
+      pagination: { current: page, pages: Math.max(1, Math.ceil(total / limit)), total },
+    };
+  }
+
+  /**
+   * Get orphan tickets (missing or null event reference).
+   */
+  async getOrphanTickets({ page = 1, limit = 50 } = {}) {
+    page = parseInt(page) || 1;
+    limit = Math.min(parseInt(limit) || 50, 200);
+    const skip = (page - 1) * limit;
+
+    const orphanMatcher = { $or: [{ event: { $exists: false } }, { event: null }] };
+
+    const [tickets, total] = await Promise.all([
+      Ticket.find(orphanMatcher)
+        .populate('user', 'name email')
+        .sort({ bookingDate: -1 })
+        .skip(skip)
+        .limit(limit),
+      Ticket.countDocuments(orphanMatcher),
+    ]);
+
+    return {
+      tickets,
+      pagination: { current: page, pages: Math.max(1, Math.ceil(total / limit)), total },
+    };
+  }
+
+  /**
+   * Assign an orphan ticket to an event (atomic; only tickets with no event ref).
+   */
+  async assignOrphanTicket(ticketId, eventId) {
+    if (!eventId) throw Object.assign(new Error('eventId is required'), { status: 400 });
+    if (!mongoose.Types.ObjectId.isValid(ticketId)) {
+      throw Object.assign(new Error('Invalid ticket id'), { status: 400 });
+    }
+
+    return withTransactionRetry(async (session) => {
+      const sess = session ? { session } : {};
+
+      const eventQuery = Event.findById(eventId).select('_id');
+      if (session) eventQuery.session(session);
+      const event = await eventQuery;
+      if (!event) throw Object.assign(new Error('Event not found'), { status: 404 });
+
+      const updated = await Ticket.findOneAndUpdate(
+        {
+          _id: ticketId,
+          $or: [{ event: { $exists: false } }, { event: null }],
+        },
+        { $set: { event: eventId } },
+        { new: true, ...sess },
+      );
+
+      if (!updated) {
+        const existingQuery = Ticket.findById(ticketId);
+        if (session) existingQuery.session(session);
+        const existing = await existingQuery;
+        if (!existing) throw Object.assign(new Error('Ticket not found'), { status: 404 });
+        if (existing.event) {
+          throw Object.assign(new Error('Ticket is not an orphan or was already assigned'), { status: 400 });
+        }
+        throw Object.assign(new Error('Ticket could not be assigned'), { status: 409 });
+      }
+
+      const populatedQuery = Ticket.findById(updated._id)
+        .populate('event', 'title date venue')
+        .populate('user', 'name email');
+      if (session) populatedQuery.session(session);
+      return populatedQuery.exec();
+    }, { allowFallback: process.env.NODE_ENV === 'test' });
+  }
+
+  /**
+   * Cancel an orphan ticket (atomic claim; idempotent if already cancelled).
+   */
+  async cancelOrphanTicket(ticketId) {
+    if (!mongoose.Types.ObjectId.isValid(ticketId)) {
+      throw Object.assign(new Error('Invalid ticket id'), { status: 400 });
+    }
+
+    return withTransactionRetry(async (session) => {
+      const sess = session ? { session } : {};
+
+      const updated = await Ticket.findOneAndUpdate(
+        {
+          _id: ticketId,
+          $or: [{ event: { $exists: false } }, { event: null }],
+          status: { $nin: ['cancelled'] },
+        },
+        { $set: { status: 'cancelled', 'payment.status': 'refunded' } },
+        { new: true, ...sess },
+      );
+
+      if (updated) return updated;
+
+      const existingQuery = Ticket.findById(ticketId);
+      if (session) existingQuery.session(session);
+      const existing = await existingQuery;
+      if (!existing) throw Object.assign(new Error('Ticket not found'), { status: 404 });
+      if (existing.status === 'cancelled') return existing;
+      if (existing.event) {
+        throw Object.assign(new Error('Only orphan tickets can be cancelled via this endpoint'), { status: 400 });
+      }
+      throw Object.assign(new Error('Ticket is not eligible for cancellation'), { status: 409 });
+    }, { allowFallback: process.env.NODE_ENV === 'test' });
+  }
+
+  /**
+   * Get a single ticket by ID with authorization check.
+   */
+  async getTicketById(ticketId, user) {
+    const ticket = await Ticket.findById(ticketId)
+      .populate('event', 'title date venue pricing organizer')
+      .populate('user', 'name email');
+
+    if (!ticket) throw Object.assign(new Error('Ticket not found'), { status: 404 });
+
+    const ownerMatch = ticket.user._id.toString() === user._id.toString();
+    const orgId = ticket.event?.organizer;
+    const organizerStr = orgId ? (orgId._id ? orgId._id.toString() : orgId.toString()) : '';
+    const isEventOrganizer = user.role === 'organizer' && organizerStr === user._id.toString();
+
+    if (!ownerMatch && user.role !== 'admin' && !isEventOrganizer) {
+      throw Object.assign(new Error('Not authorized to view this ticket'), { status: 403 });
+    }
+
+    const qrCodeImage = await this.generateQRCode(ticket.qrCode);
+    return { ticket, qrCodeImage };
+  }
+
+  /**
+   * Get all tickets for an event with statistics.
+   */
+  async getEventTickets(eventId, { page = 1, limit = 50 } = {}) {
+    page = parseInt(page) || 1;
+    limit = Math.min(parseInt(limit) || 50, 200);
+    const skip = (page - 1) * limit;
+
+    const [tickets, total, stats] = await Promise.all([
+      Ticket.find({ event: eventId })
+        .populate('user', 'name email phone')
+        .sort({ bookingDate: -1 })
+        .skip(skip)
+        .limit(limit),
+      Ticket.countDocuments({ event: eventId }),
+      Ticket.aggregate([
+        { $match: { event: new mongoose.Types.ObjectId(eventId) } },
+        {
+          $group: {
+            _id: '$status',
+            count: { $sum: 1 },
+            revenue: { $sum: { $ifNull: ['$payment.amount', 0] } },
+          },
+        },
+      ]),
+    ]);
+
+    return {
+      tickets,
+      pagination: { current: page, pages: Math.ceil(total / limit), total },
+      statistics: stats,
+    };
+  }
+
+  /**
+   * Check in a ticket (admin / organizer).
+   */
+  async checkinTicket(ticketId, user) {
+    const ticket = await Ticket.findById(ticketId)
+      .populate('event', 'title date organizer')
+      .populate('user', 'name email');
+
+    if (!ticket) throw Object.assign(new Error('Ticket not found'), { status: 404 });
+
+    if (user.role !== 'admin' && (!ticket.event.organizer || ticket.event.organizer.toString() !== user._id.toString())) {
+      throw Object.assign(new Error('Not authorized to check in tickets for this event'), { status: 403 });
+    }
+
+    return this.performAtomicCheckIn(ticket._id, user._id);
+  }
+
+  /**
+   * Look up a ticket by QR code and perform check-in.
+   */
+  async checkinByQR(qrCode, eventId, user) {
+    if (!qrCode) throw Object.assign(new Error('QR code is required'), { status: 400 });
+
+    let parsed;
+    try {
+      parsed = JSON.parse(qrCode);
+    } catch (_e) {
+      // Fail closed: we do not accept unsigned/raw ticket IDs.
+      throw Object.assign(new Error('Invalid or tampered QR code'), { status: 400 });
+    }
+
+    // Require a signed JSON QR payload.
+    if (!parsed || typeof parsed !== 'object') {
+      throw Object.assign(new Error('Invalid or tampered QR code'), { status: 400 });
+    }
+
+    const { sig, ...qrData } = parsed;
+    const ticketIdValue = qrData?.ticketId;
+    if (!ticketIdValue || !sig) {
+      throw Object.assign(new Error('Invalid or tampered QR code'), { status: 400 });
+    }
+
+    // Always validate signature.
+    const expectedSig = crypto
+      .createHmac('sha256', config.secrets.qrHmac)
+      .update(JSON.stringify(qrData))
+      .digest('hex');
+    const sigBuf = Buffer.from(String(sig), 'utf8');
+    const expectedBuf = Buffer.from(String(expectedSig), 'utf8');
+    if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) {
+      throw Object.assign(new Error('Invalid or tampered QR code'), { status: 400 });
+    }
+
+    const ticket = await Ticket.findOne({ ticketId: ticketIdValue })
+      .populate('event user', 'title name email organizer');
+    if (!ticket) throw Object.assign(new Error('Ticket not found from QR'), { status: 404 });
+
+    if (eventId && ticket.event && ticket.event._id.toString() !== eventId) {
+      throw Object.assign(new Error('Ticket does not belong to the selected event'), { status: 400 });
+    }
+
+    const isAdmin = user.role === 'admin';
+    const isOrganizer = ticket.event.organizer && ticket.event.organizer.toString() === user._id.toString();
+    if (!isAdmin && !isOrganizer) {
+      throw Object.assign(new Error('Not authorized to scan tickets for this event'), { status: 403 });
+    }
+
+    return this.performAtomicCheckIn(ticket._id, user._id);
+  }
+
+  /**
+   * Refund a ticket.
+   */
+  async refundTicket(ticketId, user) {
+    return withTransactionRetry(async (session) => {
+      const sess = session ? { session } : {};
+
+      const eligibleFilter = {
+        _id: ticketId,
+        status: 'booked',
+        $or: [{ 'checkIn.isCheckedIn': false }, { 'checkIn.isCheckedIn': { $exists: false } }],
+      };
+      if (user.role !== 'admin') {
+        eligibleFilter.user = user._id;
+      }
+
+      // Single atomic claim prevents parallel double-refund / double capacity release.
+      const ticket = await Ticket.findOneAndUpdate(
+        eligibleFilter,
+        { $set: { status: 'cancelled', 'payment.status': 'refunded' } },
+        { ...sess, new: true },
+      ).populate('event');
+
+      if (!ticket) {
+        const existingQuery = Ticket.findById(ticketId);
+        if (session) existingQuery.session(session);
+        const existing = await existingQuery;
+        if (!existing) {
+          throw Object.assign(new Error('Ticket not found'), { status: 404 });
+        }
+        if (existing.user.toString() !== user._id.toString() && user.role !== 'admin') {
+          throw Object.assign(new Error('Not authorized to refund this ticket'), { status: 403 });
+        }
+        if (existing.status === 'cancelled') {
+          throw Object.assign(new Error('Ticket is already cancelled'), { status: 400 });
+        }
+        if (existing.status === 'used' || existing.checkIn?.isCheckedIn) {
+          throw Object.assign(new Error('Cannot refund a used ticket'), { status: 400 });
+        }
+        throw Object.assign(new Error('Ticket is not eligible for refund'), { status: 409 });
+      }
+
+      const eventId = ticket.event?._id || ticket.event;
+      const seatNumber = ticket.seatNumber;
+      const isGA = typeof seatNumber === 'string' && seatNumber.startsWith('GA-');
+
+      if (isGA) {
+        const gaRes = await Event.updateOne(
+          { _id: eventId },
+          {
+            $inc: {
+              'seating.availableSeats': 1,
+              'analytics.bookings': -1,
+              'analytics.revenue': -(ticket.payment?.amount || 0),
+            },
+          },
+          sess,
+        );
+        if (gaRes.matchedCount === 0) {
+          throw Object.assign(new Error('Event not found for seat release'), { status: 500 });
+        }
+      } else {
+        const seatRes = await Event.updateOne(
+          { _id: eventId, 'seating.seatMap.seatNumber': seatNumber },
+          {
+            $set: { 'seating.seatMap.$.isBooked': false, 'seating.seatMap.$.bookedBy': null },
+            $inc: {
+              'seating.availableSeats': 1,
+              'analytics.bookings': -1,
+              'analytics.revenue': -(ticket.payment?.amount || 0),
+            },
+          },
+          sess,
+        );
+        if (seatRes.matchedCount === 0) {
+          throw Object.assign(new Error('Seat map entry not found; cannot release seat'), { status: 500 });
+        }
+      }
+
+      const eventQuery = Event.findById(eventId);
+      if (session) eventQuery.session(session);
+      const event = await eventQuery;
+      return { ticket, event };
+    }, { allowFallback: process.env.NODE_ENV === 'test' });
+  }
+
+  /**
+   * Prepare seat map and select seats for multi-booking.
+   */
+  async prepareSeatsForBooking(event, eventId, qty, requestedSeatNumbers) {
+    if (!event.seating || !Array.isArray(event.seating.seatMap) || event.seating.seatMap.length === 0) {
+      const existingTickets = await Ticket.find({ event: eventId, status: { $in: ['booked', 'used'] } }).select('seatNumber user');
+      const totalSeats = event.seating?.totalSeats || 0;
+      const generatedSeatMap = [];
+      for (let i = 1; i <= totalSeats; i++) {
+        generatedSeatMap.push({ seatNumber: `S${i.toString().padStart(3, '0')}`, isBooked: false, bookedBy: null });
+      }
+      const seatIndexByNumber = new Map(generatedSeatMap.map((s, idx) => [s.seatNumber, idx]));
+      for (const t of existingTickets) {
+        const idx = seatIndexByNumber.get(t.seatNumber);
+        if (idx !== undefined) { generatedSeatMap[idx].isBooked = true; generatedSeatMap[idx].bookedBy = t.user; }
+      }
+      // Keep this purely in-memory for selection; booking commit happens atomically in bookMultiSeats.
+      event.seating.seatMap = generatedSeatMap;
+      event.seating.availableSeats = Math.max(0, (event.seating.totalSeats || 0) - existingTickets.length);
+    }
+
+    const seatsChosen = [];
+    const seatMap = event.seating.seatMap;
+    const requested = Array.isArray(requestedSeatNumbers) ? requestedSeatNumbers : [];
+    for (const sn of requested) {
+      const seat = seatMap.find(s => s.seatNumber === sn && !s.isBooked);
+      if (seat && seatsChosen.length < qty) seatsChosen.push(seat.seatNumber);
+    }
+    for (const s of seatMap) {
+      if (!s.isBooked && seatsChosen.length < qty && !seatsChosen.includes(s.seatNumber)) {
+        seatsChosen.push(s.seatNumber);
+      }
+      if (seatsChosen.length === qty) break;
+    }
+
+    if (seatsChosen.length < qty) {
+      throw Object.assign(new Error('Not enough seats available'), { status: 400 });
+    }
+
+    return seatsChosen;
+  }
+
+  /**
+   * Atomically book multiple seats and create tickets.
+   */
+  async bookMultiSeats({ eventId, event, seatsChosen, userId, expectedAmount, paymentMethod, transactionId, couponCode, metadata, paymentId }) {
+    if (!Array.isArray(seatsChosen) || seatsChosen.length !== 1) {
+      throw Object.assign(
+        new Error('Only one seat per book-multi request is supported (policy: one active ticket per user per event).'),
+        { status: 400 },
+      );
+    }
+
+    const totalRevenue = event.pricing.type === 'paid' ? (expectedAmount * seatsChosen.length) : 0;
+    const transactionsRequired = (process.env.NODE_ENV === 'production'
+      || String(process.env.REQUIRE_DB_TRANSACTIONS || '').toLowerCase() === 'true')
+      && process.env.NODE_ENV !== 'test';
+    const allowNonTransactional = process.env.NODE_ENV === 'test'
+      || (process.env.NODE_ENV !== 'production'
+        && String(process.env.ALLOW_NON_TXN_BOOKING || '').toLowerCase() === 'true');
+
+    const isTxnUnsupported = (err) => {
+      if (!err) return false;
+      if (err.code === 20 || err.codeName === 'IllegalOperation') return true;
+      const msg = String(err.message || '');
+      return msg.includes('Transaction numbers are only allowed')
+        || msg.includes('replica set member or mongos');
+    };
+
+    let attempt = 0;
+    let forceNoSession = false;
+    while (attempt < 2) {
+      attempt += 1;
+
+      let session = null;
+      let useSession = !forceNoSession;
+      if (useSession) {
+        try {
+          session = await mongoose.startSession();
+          session.startTransaction();
+        } catch (err) {
+          if (transactionsRequired) {
+            throw Object.assign(new Error('Database transactions are required but unavailable'), { status: 500 });
+          }
+          if (!allowNonTransactional) {
+            throw Object.assign(new Error('Database transactions are unavailable (set ALLOW_NON_TXN_BOOKING=true only for local dev)'), { status: 500 });
+          }
+          logger.warn(`Multi-book transaction unavailable; using compatibility fallback: ${err.message}`);
+          useSession = false;
+          session = null;
+        }
+      }
+
+      const sessionOptions = useSession ? { session } : {};
+
+      try {
+        const requiresTxnForIntegrity = event.pricing?.type === 'paid' || Boolean(couponCode);
+        if (requiresTxnForIntegrity && !useSession && process.env.NODE_ENV !== 'test') {
+          throw Object.assign(new Error('Booking requires database transactions to be enabled'), { status: 500 });
+        }
+
+        // Mirror bookingService.bookSeat: atomically redeem coupon inside the same transaction
+        // so /api/tickets/book-multi cannot bypass per-use limits (usedCount / maxUses).
+        if (couponCode) {
+          const normalizedCode = String(couponCode).toUpperCase().trim();
+          const coupon = await Coupon.findOne({ code: normalizedCode, isActive: true }, null, sessionOptions);
+          if (!coupon) {
+            throw Object.assign(new Error('Coupon code is invalid'), { status: 400 });
+          }
+          if (coupon.expiresAt && new Date() > coupon.expiresAt) {
+            throw Object.assign(new Error('Coupon has expired'), { status: 400 });
+          }
+          if (coupon.maxUses !== null && coupon.usedCount >= coupon.maxUses) {
+            throw Object.assign(new Error('Coupon usage limit reached'), { status: 400 });
+          }
+          if (coupon.applicableEvents && coupon.applicableEvents.length > 0) {
+            const matchesEvent = coupon.applicableEvents.some((id) => id.toString() === String(eventId));
+            if (!matchesEvent) {
+              throw Object.assign(new Error('Coupon is not applicable to this event'), { status: 400 });
+            }
+          }
+
+          const payCurrency = normalizeCurrency(event.pricing?.currency || 'USD');
+          const baseMinor = toMinor(Number(event.pricing?.amount || 0), payCurrency);
+          let discountMinor = 0;
+          if (coupon.discountType === 'percentage') {
+            discountMinor = Math.min(baseMinor, Math.round((baseMinor * coupon.discountValue) / 100));
+          } else {
+            discountMinor = Math.min(baseMinor, toMinor(coupon.discountValue || 0, payCurrency));
+          }
+          const expectedMinor = Math.max(0, baseMinor - discountMinor);
+
+          if (event.pricing?.type === 'paid') {
+            if (toMinor(Number(expectedAmount), payCurrency) !== expectedMinor) {
+              throw Object.assign(new Error('Payment amount does not match expected amount for the coupon'), { status: 400 });
+            }
+          }
+
+          const redeemed = await Coupon.findOneAndUpdate(
+            {
+              _id: coupon._id,
+              isActive: true,
+              $or: [{ maxUses: null }, { $expr: { $lt: ['$usedCount', '$maxUses'] } }],
+            },
+            { $inc: { usedCount: 1 } },
+            { new: true, ...sessionOptions },
+          );
+          if (!redeemed) {
+            throw Object.assign(new Error('Coupon is invalid or exhausted'), { status: 400 });
+          }
+        }
+
+        // Validate payment (do not consume yet) for paid bookings.
+        let verifiedPayment = null;
+        if (event.pricing?.type === 'paid') {
+          if (!paymentId) {
+            throw Object.assign(new Error('paymentId is required for paid bookings'), { status: 400 });
+          }
+
+          const payCurrency = normalizeCurrency(event.pricing?.currency || 'USD');
+          const perSeatMinor = toMinor(expectedAmount, payCurrency);
+          const totalMinor = perSeatMinor * seatsChosen.length;
+          const legacyTotal = expectedAmount * seatsChosen.length;
+
+          const paymentQuery = Payment.findOne({
+            paymentId: String(paymentId),
+            user: userId,
+            event: eventId,
+            status: 'verified',
+            currency: payCurrency,
+            quantity: seatsChosen.length,
+            ...paymentAmountMatchOrLegacy(totalMinor, legacyTotal),
+          });
+          if (useSession) paymentQuery.session(session);
+          verifiedPayment = await paymentQuery.exec();
+          if (!verifiedPayment) {
+            logger.warn(`Rejected multi-book payment verification paymentId=${paymentId} user=${userId} event=${eventId}`);
+            throw Object.assign(new Error('Payment not verified'), { status: 400 });
+          }
+        }
+
+        const updateResult = await Event.updateOne(
+        {
+          _id: eventId,
+          'seating.seatMap': {
+            $not: { $elemMatch: { seatNumber: { $in: seatsChosen }, isBooked: true } },
+          },
+        },
+        {
+          $set: {
+            'seating.seatMap.$[elem].isBooked': true,
+            'seating.seatMap.$[elem].bookedBy': userId,
+          },
+          $inc: {
+            'seating.availableSeats': -seatsChosen.length,
+            'analytics.bookings': seatsChosen.length,
+            'analytics.revenue': totalRevenue,
+          },
+        },
+        { arrayFilters: [{ 'elem.seatNumber': { $in: seatsChosen } }], ...sessionOptions }
+      );
+
+        if (updateResult.modifiedCount === 0) {
+          throw Object.assign(new Error('One or more selected seats were already booked. Please refresh and try again.'), { status: 400 });
+        }
+
+      const ticketsToInsert = seatsChosen.map(seatNumber => ({
+        event: eventId,
+        user: userId,
+        seatNumber,
+        payment: {
+          amount: expectedAmount,
+          currency: event.pricing.currency,
+          paymentMethod,
+          transactionId: transactionId || undefined,
+          status: event.pricing.type === 'free' || transactionId ? 'completed' : 'pending',
+          paymentDate: event.pricing.type === 'free' || transactionId ? new Date() : null,
+        },
+        metadata: {
+          ...metadata,
+          bulkBooking: true,
+          couponCode: couponCode || undefined,
+        },
+      }));
+
+        const createdTickets = await Ticket.insertMany(ticketsToInsert, useSession ? { session } : undefined);
+
+        // Consume payment at the end of the transaction to prevent partial failures burning payments.
+        if (event.pricing?.type === 'paid') {
+          const consumeResult = await Payment.updateOne(
+            { _id: verifiedPayment._id, status: 'verified' },
+            { $set: { status: 'consumed', consumedAt: new Date() } },
+            useSession ? { session } : undefined
+          );
+          if (!consumeResult || consumeResult.modifiedCount !== 1) {
+            throw Object.assign(new Error('Payment is no longer available'), { status: 409 });
+          }
+        }
+
+        if (useSession) {
+          await session.commitTransaction();
+        }
+
+        const query = Ticket.find({ _id: { $in: createdTickets.map(t => t._id) } })
+        .populate('event', 'title date venue pricing')
+        .populate('user', 'name email');
+        if (useSession) query.session(session);
+
+      // Execute while session is still alive; returning a lazy Query would
+      // run after finally() ends the session and can trigger driver errors.
+        const populatedTickets = await query.exec();
+        return populatedTickets;
+      } catch (e) {
+        if (useSession && session) {
+          await session.abortTransaction().catch(() => {});
+        }
+
+        if (!transactionsRequired && allowNonTransactional && useSession && session && isTxnUnsupported(e) && process.env.NODE_ENV !== 'production' && attempt === 1) {
+          logger.warn(`Retrying multi-book without transaction due to unsupported transactions: ${e.message}`);
+          forceNoSession = true;
+          continue;
+        }
+
+        throw e;
+      } finally {
+        if (session) session.endSession();
+      }
+    }
+
+    throw Object.assign(new Error('Booking failed'), { status: 500 });
+  }
+}
+
+module.exports = new TicketsService();
