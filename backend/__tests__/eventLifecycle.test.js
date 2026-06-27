@@ -45,7 +45,7 @@ describe('Event Lifecycle & Immutability', () => {
         await client.csrfRequest('post', '/api/auth/register', {
             name: 'Organizer User',
             email: 'org@example.com',
-            password: 'UniqueTestPass!2026',
+            password: '123456',
             role: 'organizer'
         });
 
@@ -54,7 +54,7 @@ describe('Event Lifecycle & Immutability', () => {
 
         const loginRes = await client.csrfRequest('post', '/api/auth/login', {
             email: 'org@example.com',
-            password: 'UniqueTestPass!2026'
+            password: '123456'
         });
 
         // Get token from cookie

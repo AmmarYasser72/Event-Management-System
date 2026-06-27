@@ -50,24 +50,11 @@ const OptimizedRegisterForm = ({ onToggleMode }) => {
     let feedback = [];
 
     // Length check
-    if (password.length >= 12) score += 1;
-    else feedback.push('12+ characters');
+    if (password.length === 6) score += 1;
+    else feedback.push('exactly 6 characters');
 
-    // Lowercase check
-    if (/[a-z]/.test(password)) score += 1;
-    else feedback.push('lowercase letter');
-
-    // Uppercase check
-    if (/[A-Z]/.test(password)) score += 1;
-    else feedback.push('uppercase letter');
-
-    // Number check
-    if (/\d/.test(password)) score += 1;
-    else feedback.push('number');
-
-    // Special character check
-    if (/[^\w\s]/.test(password)) score += 1;
-    else feedback.push('special character');
+    if (/^\d+$/.test(password)) score += 4;
+    else feedback.push('numbers only');
 
     const levels = [
       { level: 'Very Weak', color: 'red', bgColor: 'bg-red-500' },
@@ -99,7 +86,8 @@ const OptimizedRegisterForm = ({ onToggleMode }) => {
       case 'phone':
         return value.length >= 10 ? null : 'Invalid phone number';
       case 'password':
-        return value.length >= 12 ? null : 'Must be at least 12 characters';
+        if (value.length !== 6) return 'Password must be exactly 6 characters';
+        return /^\d+$/.test(value) ? null : 'Password must contain numbers only';
       case 'confirmPassword':
         return value === formData.password ? null : 'Passwords do not match';
       case 'accountType':
@@ -438,7 +426,7 @@ const OptimizedRegisterForm = ({ onToggleMode }) => {
                     value={formData.password}
                     onChange={handleChange}
                     className={`pl-10 pr-10 ${errors.password ? 'border-red-300' : ''}`}
-                    placeholder="Create a strong password"
+                    placeholder="Create a 6-digit password"
                     required
                   />
                   <button
@@ -482,30 +470,15 @@ const OptimizedRegisterForm = ({ onToggleMode }) => {
 
                     {/* Requirements Checklist */}
                     <div className="grid grid-cols-2 gap-1 text-xs">
-                      <div className={`flex items-center gap-1 ${formData.password.length >= 8 ? 'text-green-600' : 'text-gray-400'
+                      <div className={`flex items-center gap-1 ${formData.password.length === 6 ? 'text-green-600' : 'text-gray-400'
                         }`}>
-                        {formData.password.length >= 8 ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                        <span>12+ characters</span>
+                        {formData.password.length === 6 ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                        <span>Exactly 6 characters</span>
                       </div>
-                      <div className={`flex items-center gap-1 ${/[A-Z]/.test(formData.password) ? 'text-green-600' : 'text-gray-400'
+                      <div className={`flex items-center gap-1 ${/^\d+$/.test(formData.password) ? 'text-green-600' : 'text-gray-400'
                         }`}>
-                        {/[A-Z]/.test(formData.password) ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                        <span>Uppercase</span>
-                      </div>
-                      <div className={`flex items-center gap-1 ${/[a-z]/.test(formData.password) ? 'text-green-600' : 'text-gray-400'
-                        }`}>
-                        {/[a-z]/.test(formData.password) ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                        <span>Lowercase</span>
-                      </div>
-                      <div className={`flex items-center gap-1 ${/\d/.test(formData.password) ? 'text-green-600' : 'text-gray-400'
-                        }`}>
-                        {/\d/.test(formData.password) ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                        <span>Number</span>
-                      </div>
-                      <div className={`flex items-center gap-1 col-span-2 ${/[^\w\s]/.test(formData.password) ? 'text-green-600' : 'text-gray-400'
-                        }`}>
-                        {/[^\w\s]/.test(formData.password) ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                        <span>Special character (!@#$%^&*)</span>
+                        {/^\d+$/.test(formData.password) ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                        <span>Numbers only</span>
                       </div>
                     </div>
                   </div>

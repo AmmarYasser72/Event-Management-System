@@ -32,7 +32,7 @@ beforeAll(async () => {
     admin = await User.create({
         name: 'Admin',
         email: 'admin_coupons@example.com',
-        password: 'UniqueTestPass!2026',
+        password: '123456',
         role: 'admin',
         isActive: true,
         emailVerified: true
@@ -45,7 +45,7 @@ beforeAll(async () => {
     user = await User.create({
         name: 'User',
         email: 'user_coupons@example.com',
-        password: 'UniqueTestPass!2026',
+        password: '123456',
         role: 'user',
         isActive: true,
         emailVerified: true
@@ -263,7 +263,7 @@ describe('Coupon Endpoints', () => {
         const user2 = await User.create({
             name: 'User Two',
             email: `user_two_multi_${Date.now()}@example.com`,
-            password: 'UniqueTestPass!2026',
+            password: '123456',
             role: 'user',
             isActive: true,
             emailVerified: true,

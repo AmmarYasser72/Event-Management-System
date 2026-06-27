@@ -102,8 +102,8 @@ const registerValidator = [
     .isString()
     .withMessage('Password must be a string')
     .bail()
-    .isLength({ min: 12 })
-    .withMessage('Password must be at least 12 characters')
+    .isLength({ min: 6, max: 6 })
+    .withMessage('Password must be exactly 6 characters')
     .custom((value) => {
       const errors = validatePasswordStrength(value);
       if (errors.length > 0) {
@@ -224,8 +224,8 @@ const changePasswordValidator = [
     .isString()
     .withMessage('New password must be a string')
     .bail()
-    .isLength({ min: 12 })
-    .withMessage('Password must be at least 12 characters')
+    .isLength({ min: 6, max: 6 })
+    .withMessage('Password must be exactly 6 characters')
     .custom((value) => {
       const errors = validatePasswordStrength(value);
       if (errors.length > 0) {
@@ -833,8 +833,16 @@ const resetPasswordValidator = [
     .bail()
     .isString()
     .withMessage('Password must be a string')
-    .isLength({ min: 12, max: 200 })
-    .withMessage('Password must be between 12 and 200 characters'),
+    .bail()
+    .isLength({ min: 6, max: 6 })
+    .withMessage('Password must be exactly 6 characters')
+    .custom((value) => {
+      const errors = validatePasswordStrength(value);
+      if (errors.length > 0) {
+        throw new Error(`Password does not meet requirements: ${errors.join(', ')}`);
+      }
+      return true;
+    }),
   validate,
 ];
 

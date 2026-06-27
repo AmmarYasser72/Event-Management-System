@@ -66,7 +66,7 @@ describe('Security Hardening Tests', () => {
       const response = await client.csrfRequest('post', '/api/auth/register', {
         name: '<script>alert("xss")</script>John Doe',
         email: `johndoe_${Date.now()}@example.com`,
-        password: 'UniqueTestPass!2026',
+        password: '123456',
         role: 'user',
       });
 
@@ -81,7 +81,7 @@ describe('Security Hardening Tests', () => {
       const user = await User.create({
         name: 'Regular User',
         email: 'regular-security@example.com',
-        password: 'UniqueTestPass!2026',
+        password: '123456',
         role: 'user',
         emailVerified: true,
       });
@@ -124,7 +124,7 @@ describe('Security Hardening Tests', () => {
       const organizer = await User.create({
         name: 'QR RL Organizer',
         email: `qr_rl_org_${Date.now()}@example.com`,
-        password: 'UniqueTestPass!2026',
+        password: '123456',
         role: 'organizer',
         emailVerified: true,
         isActive: true,
@@ -132,7 +132,7 @@ describe('Security Hardening Tests', () => {
 
       const loginRes = await client.csrfRequest('post', '/api/auth/login', {
         email: organizer.email,
-        password: 'UniqueTestPass!2026',
+        password: '123456',
       });
       expect(loginRes.statusCode).toBe(200);
 
@@ -150,7 +150,7 @@ describe('Security Hardening Tests', () => {
       const ticketOwner = await User.create({
         name: 'QR RL Owner',
         email: `qr_rl_owner_${Date.now()}@example.com`,
-        password: 'UniqueTestPass!2026',
+        password: '123456',
         role: 'user',
         emailVerified: true,
         isActive: true,
@@ -203,7 +203,7 @@ describe('Security Hardening Tests', () => {
         .send({
           name: 'No Csrf',
           email: 'nocsrf@example.com',
-          password: 'UniqueTestPass!2026',
+          password: '123456',
         });
 
       expect(response.statusCode).toBe(403);
@@ -240,7 +240,7 @@ describe('Security Hardening Tests', () => {
       const user = await User.create({
         name: 'QR Test User',
         email: 'qr-test-user@example.com',
-        password: 'UniqueTestPass!2026',
+        password: '123456',
         role: 'user',
         emailVerified: true,
       });
@@ -284,7 +284,7 @@ describe('Security Hardening Tests', () => {
       const user = await User.create({
         name: 'Inactive Refresh User',
         email: `inactive_refresh_${Date.now()}@example.com`,
-        password: 'UniqueTestPass!2026',
+        password: '123456',
         role: 'user',
         emailVerified: true,
         isActive: false,
@@ -312,7 +312,7 @@ describe('Security Hardening Tests', () => {
       const user = await User.create({
         name: 'Unverified Refresh User',
         email: `unverified_refresh_${Date.now()}@example.com`,
-        password: 'UniqueTestPass!2026',
+        password: '123456',
         role: 'user',
         emailVerified: false,
         isActive: true,
@@ -342,7 +342,7 @@ describe('Security Hardening Tests', () => {
       const user = await User.create({
         name: 'Reset Revoke User',
         email: `reset_revoke_${Date.now()}@example.com`,
-        password: 'UniqueTestPass!2026',
+        password: '123456',
         role: 'user',
         emailVerified: true,
         isActive: true,
@@ -351,7 +351,7 @@ describe('Security Hardening Tests', () => {
       // Login to obtain the refreshToken cookie.
       const loginRes = await client.csrfRequest('post', '/api/auth/login', {
         email: user.email,
-        password: 'UniqueTestPass!2026',
+        password: '123456',
       });
       expect(loginRes.statusCode).toBe(200);
 
@@ -359,7 +359,7 @@ describe('Security Hardening Tests', () => {
       const resetToken = user.generatePasswordResetToken();
       await user.save();
 
-      const newPassword = 'UniqueReset!2026GhJK';
+      const newPassword = '654321';
       const resetRes = await client.csrfRequest('post', '/api/auth/reset-password', {
         token: resetToken,
         password: newPassword,
@@ -381,7 +381,7 @@ describe('Security Hardening Tests', () => {
       const organizer = await User.create({
         name: 'QR Organizer',
         email: `qr_org_${Date.now()}@example.com`,
-        password: 'UniqueTestPass!2026',
+        password: '123456',
         role: 'organizer',
         emailVerified: true,
         isActive: true,
@@ -389,7 +389,7 @@ describe('Security Hardening Tests', () => {
 
       const loginRes = await client.csrfRequest('post', '/api/auth/login', {
         email: organizer.email,
-        password: 'UniqueTestPass!2026',
+        password: '123456',
       });
       expect(loginRes.statusCode).toBe(200);
 
@@ -407,7 +407,7 @@ describe('Security Hardening Tests', () => {
       const ticketOwner = await User.create({
         name: 'Ticket Owner',
         email: `qr_owner_${Date.now()}@example.com`,
-        password: 'UniqueTestPass!2026',
+        password: '123456',
         role: 'user',
         emailVerified: true,
         isActive: true,
@@ -438,7 +438,7 @@ describe('Security Hardening Tests', () => {
       const organizer = await User.create({
         name: 'QR Organizer',
         email: `qr_org_${Date.now()}@example.com`,
-        password: 'UniqueTestPass!2026',
+        password: '123456',
         role: 'organizer',
         emailVerified: true,
         isActive: true,
@@ -446,7 +446,7 @@ describe('Security Hardening Tests', () => {
 
       const loginRes = await client.csrfRequest('post', '/api/auth/login', {
         email: organizer.email,
-        password: 'UniqueTestPass!2026',
+        password: '123456',
       });
       expect(loginRes.statusCode).toBe(200);
 
@@ -464,7 +464,7 @@ describe('Security Hardening Tests', () => {
       const ticketOwner = await User.create({
         name: 'Ticket Owner 2',
         email: `qr_owner_${Date.now()}@example.com`,
-        password: 'UniqueTestPass!2026',
+        password: '123456',
         role: 'user',
         emailVerified: true,
         isActive: true,
@@ -493,7 +493,7 @@ describe('Security Hardening Tests', () => {
       const organizer = await User.create({
         name: 'QR Organizer',
         email: `qr_org_${Date.now()}@example.com`,
-        password: 'UniqueTestPass!2026',
+        password: '123456',
         role: 'organizer',
         emailVerified: true,
         isActive: true,
@@ -501,7 +501,7 @@ describe('Security Hardening Tests', () => {
 
       const loginRes = await client.csrfRequest('post', '/api/auth/login', {
         email: organizer.email,
-        password: 'UniqueTestPass!2026',
+        password: '123456',
       });
       expect(loginRes.statusCode).toBe(200);
 
@@ -519,7 +519,7 @@ describe('Security Hardening Tests', () => {
       const ticketOwner = await User.create({
         name: 'Ticket Owner 3',
         email: `qr_owner_${Date.now()}@example.com`,
-        password: 'UniqueTestPass!2026',
+        password: '123456',
         role: 'user',
         emailVerified: true,
         isActive: true,

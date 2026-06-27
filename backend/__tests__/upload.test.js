@@ -25,7 +25,7 @@ beforeAll(async () => {
     user = await User.create({
         name: 'Upload User',
         email: 'upload_test@example.com',
-        password: 'Password123!',
+        password: '123456',
         role: 'user',
         isActive: true,
         emailVerified: true
@@ -38,7 +38,7 @@ beforeAll(async () => {
     const otherUser = await User.create({
         name: 'Other Upload User',
         email: 'upload_other_test@example.com',
-        password: 'Password123!',
+        password: '123456',
         role: 'user',
         isActive: true,
         emailVerified: true

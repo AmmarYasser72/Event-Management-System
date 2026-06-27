@@ -41,14 +41,14 @@ describe('Halls Endpoints', () => {
         await User.create({
             name: 'Admin User',
             email: 'admin@example.com',
-            password: 'UniqueTestPass!2026',
+            password: '123456',
             role: 'admin',
             emailVerified: true
         });
 
         const loginRes = await client.csrfRequest('post', '/api/auth/login', {
             email: 'admin@example.com',
-            password: 'UniqueTestPass!2026'
+            password: '123456'
         });
 
         const cookies = loginRes.headers['set-cookie'];

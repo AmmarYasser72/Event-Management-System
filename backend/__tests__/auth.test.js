@@ -78,7 +78,7 @@ describe('Auth Endpoints', () => {
         const res = await client.csrfRequest('post', '/api/auth/register', {
             name: 'Test user',
             email: 'test@example.com',
-            password: 'UniqueTestPass!2026',
+            password: '123456',
             role: 'user'
         });
 
@@ -92,7 +92,7 @@ describe('Auth Endpoints', () => {
         const res = await client.csrfRequest('post', '/api/auth/register', {
             name: 'Weak user',
             email: 'weak@example.com',
-            password: 'password',
+            password: '12345',
             role: 'user'
         });
 
@@ -105,12 +105,12 @@ describe('Auth Endpoints', () => {
         await client.csrfRequest('post', '/api/auth/register', {
             name: 'Login user',
             email: 'login@example.com',
-            password: 'UniqueTestPass!2026'
+            password: '123456'
         });
 
         const res = await client.csrfRequest('post', '/api/auth/login', {
             email: 'login@example.com',
-            password: 'UniqueTestPass!2026'
+            password: '123456'
         });
 
         // Login failures intentionally use a uniform response to prevent
@@ -127,7 +127,7 @@ describe('Auth Endpoints', () => {
     const user = await User.create({
       name: '2FA User',
       email: `twofa_${Date.now()}@example.com`,
-      password: 'UniqueTestPass!2026',
+      password: '123456',
       role: 'user',
       emailVerified: true,
       isActive: true,
@@ -141,7 +141,7 @@ describe('Auth Endpoints', () => {
 
     const res = await client.csrfRequest('post', '/api/auth/login', {
       email: user.email,
-      password: 'UniqueTestPass!2026',
+      password: '123456',
       twoFactorCode,
     });
 
@@ -156,7 +156,7 @@ describe('Auth Endpoints', () => {
     const user = await User.create({
       name: 'Delete Me',
       email: `delete_${Date.now()}@example.com`,
-      password: 'UniqueTestPass!2026',
+      password: '123456',
       role: 'user',
       emailVerified: true,
       isActive: true,

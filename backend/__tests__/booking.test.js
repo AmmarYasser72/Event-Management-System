@@ -45,7 +45,7 @@ describe('Booking Endpoints', () => {
         await client.csrfRequest('post', '/api/auth/register', {
             name: 'Test User',
             email: testEmail,
-            password: 'UniqueTestPass!2026',
+            password: '123456',
             role: 'organizer'
         });
 
@@ -54,7 +54,7 @@ describe('Booking Endpoints', () => {
 
         const loginRes = await client.csrfRequest('post', '/api/auth/login', {
             email: testEmail,
-            password: 'UniqueTestPass!2026'
+            password: '123456'
         });
 
         // Get token from cookie

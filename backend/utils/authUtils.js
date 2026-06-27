@@ -56,33 +56,8 @@ const isDisposableEmail = (email = '') =>
 
 const validatePasswordStrength = (password = '') => {
   const errors = [];
-  const commonPasswords = [
-    'password',
-    '123456',
-    '12345678',
-    'qwerty',
-    'letmein',
-    'admin',
-    'welcome',
-    'monkey',
-    'dragon',
-    'football',
-    'iloveyou',
-  ];
-  const lowerPassword = password.toLowerCase();
-
-  if (password.length < 12) errors.push('At least 12 characters');
-  if (!/[A-Z]/.test(password)) errors.push('At least one uppercase letter');
-  if (!/[a-z]/.test(password)) errors.push('At least one lowercase letter');
-  if (!/[0-9]/.test(password)) errors.push('At least one number');
-  if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) errors.push('At least one special character');
-  if (/(.)\1\1/.test(password)) errors.push('No more than two repeated characters in a row');
-  if (/abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz|123|234|345|456|567|678|789|7890|qwerty|asdf|zxcv/i.test(password)) {
-    errors.push('Avoid sequential or predictable patterns');
-  }
-  if (commonPasswords.some((common) => lowerPassword.includes(common))) {
-    errors.push('Avoid common passwords or phrases');
-  }
+  if (password.length !== 6) errors.push('Exactly 6 characters');
+  if (!/^\d+$/.test(password)) errors.push('Numbers only');
 
   return errors;
 };

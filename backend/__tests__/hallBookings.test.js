@@ -58,7 +58,7 @@ describe('Hall Bookings Maintenance Authorization', () => {
         const ownerUser = await User.create({
             name: 'Owner Venue Admin',
             email: 'owner.venue.admin@example.com',
-            password: 'UniqueTestPass!2026',
+            password: '123456',
             role: 'venue_admin',
             emailVerified: true
         });
@@ -71,7 +71,7 @@ describe('Hall Bookings Maintenance Authorization', () => {
         const otherUser = await User.create({
             name: 'Other Venue Admin',
             email: 'other.venue.admin@example.com',
-            password: 'UniqueTestPass!2026',
+            password: '123456',
             role: 'venue_admin',
             emailVerified: true
         });
@@ -84,7 +84,7 @@ describe('Hall Bookings Maintenance Authorization', () => {
         const adminUser = await User.create({
             name: 'Admin User',
             email: 'global.admin@example.com',
-            password: 'UniqueTestPass!2026',
+            password: '123456',
             role: 'admin',
             emailVerified: true
         });
@@ -96,7 +96,7 @@ describe('Hall Bookings Maintenance Authorization', () => {
         const organizerUser = await User.create({
             name: 'Event Organizer',
             email: 'event.organizer@example.com',
-            password: 'UniqueTestPass!2026',
+            password: '123456',
             role: 'organizer',
             emailVerified: true
         });

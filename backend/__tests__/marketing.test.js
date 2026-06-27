@@ -24,7 +24,7 @@ beforeAll(async () => {
     admin = await User.create({
         name: 'Admin Marketer',
         email: 'admin_market@example.com',
-        password: 'Password123!',
+        password: '123456',
         role: 'admin',
         isActive: true,
         emailVerified: true
@@ -37,7 +37,7 @@ beforeAll(async () => {
     org = await User.create({
         name: 'Organizer Marketer',
         email: 'org_market@example.com',
-        password: 'Password123!',
+        password: '123456',
         role: 'organizer',
         isActive: true,
         emailVerified: true

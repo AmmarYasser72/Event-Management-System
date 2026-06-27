@@ -39,7 +39,7 @@ describe('Ticket refund, cancel concurrency, organizer access', () => {
     await client.csrfRequest('post', '/api/auth/register', {
       name: 'Org',
       email: 'org_ticket_view@example.com',
-      password: 'UniqueTestPass!2026',
+      password: '123456',
       role: 'organizer',
     });
     await User.updateOne(
@@ -49,7 +49,7 @@ describe('Ticket refund, cancel concurrency, organizer access', () => {
 
     const orgLogin = await client.csrfRequest('post', '/api/auth/login', {
       email: 'org_ticket_view@example.com',
-      password: 'UniqueTestPass!2026',
+      password: '123456',
     });
     const orgCookies = orgLogin.headers['set-cookie'];
     const orgToken = orgCookies.find((c) => c.startsWith('accessToken=')).split(';')[0].split('=')[1];
@@ -58,14 +58,14 @@ describe('Ticket refund, cancel concurrency, organizer access', () => {
     await client.csrfRequest('post', '/api/auth/register', {
       name: 'Fan',
       email: 'fan_ticket_view@example.com',
-      password: 'UniqueTestPass!2026',
+      password: '123456',
       role: 'user',
     });
     await User.updateOne({ email: 'fan_ticket_view@example.com' }, { emailVerified: true });
 
     const fanLogin = await client.csrfRequest('post', '/api/auth/login', {
       email: 'fan_ticket_view@example.com',
-      password: 'UniqueTestPass!2026',
+      password: '123456',
     });
     const fanCookies = fanLogin.headers['set-cookie'];
     const fanToken = fanCookies.find((c) => c.startsWith('accessToken=')).split(';')[0].split('=')[1];
@@ -123,14 +123,14 @@ describe('Ticket refund, cancel concurrency, organizer access', () => {
     await client.csrfRequest('post', '/api/auth/register', {
       name: 'Refund User',
       email: 'refund_parallel@example.com',
-      password: 'UniqueTestPass!2026',
+      password: '123456',
       role: 'user',
     });
     await User.updateOne({ email: 'refund_parallel@example.com' }, { emailVerified: true });
 
     const login = await client.csrfRequest('post', '/api/auth/login', {
       email: 'refund_parallel@example.com',
-      password: 'UniqueTestPass!2026',
+      password: '123456',
     });
     const cookies = login.headers['set-cookie'];
     const token = cookies.find((c) => c.startsWith('accessToken=')).split(';')[0].split('=')[1];
@@ -179,14 +179,14 @@ describe('Ticket refund, cancel concurrency, organizer access', () => {
     await client.csrfRequest('post', '/api/auth/register', {
       name: 'Cancel User',
       email: 'cancel_parallel@example.com',
-      password: 'UniqueTestPass!2026',
+      password: '123456',
       role: 'user',
     });
     await User.updateOne({ email: 'cancel_parallel@example.com' }, { emailVerified: true });
 
     const login = await client.csrfRequest('post', '/api/auth/login', {
       email: 'cancel_parallel@example.com',
-      password: 'UniqueTestPass!2026',
+      password: '123456',
     });
     const cookies = login.headers['set-cookie'];
     const token = cookies.find((c) => c.startsWith('accessToken=')).split(';')[0].split('=')[1];

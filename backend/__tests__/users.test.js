@@ -29,7 +29,7 @@ beforeAll(async () => {
     admin = await User.create({
         name: 'Admin User',
         email: 'admin_users@example.com',
-        password: 'Password123!',
+        password: '123456',
         role: 'admin',
         isActive: true,
         emailVerified: true
@@ -42,7 +42,7 @@ beforeAll(async () => {
     user = await User.create({
         name: 'Standard User',
         email: 'user_users@example.com',
-        password: 'Password123!',
+        password: '123456',
         role: 'user',
         isActive: true,
         emailVerified: true
@@ -127,7 +127,7 @@ describe('User Management Endpoints', () => {
         const noRequest = await User.create({
             name: 'No Request',
             email: `no_req_${Date.now()}@example.com`,
-            password: 'UniqueTestPass!2026',
+            password: '123456',
             role: 'user',
             isActive: true,
             emailVerified: true,
@@ -151,7 +151,7 @@ describe('User Management Endpoints', () => {
         const candidate = await User.create({
             name: 'Dup Approve',
             email: `dup_app_${Date.now()}@example.com`,
-            password: 'UniqueTestPass!2026',
+            password: '123456',
             role: 'user',
             isActive: true,
             emailVerified: true,
@@ -203,7 +203,7 @@ describe('User Management Endpoints', () => {
         const victim = await User.create({
             name: 'Victim',
             email: 'victim@example.com',
-            password: 'UniqueTestPass!2026',
+            password: '123456',
             isActive: true
         });
 
@@ -218,7 +218,7 @@ describe('User Management Endpoints', () => {
         const victim = await User.create({
             name: 'Delete Target',
             email: `delete_target_${Date.now()}@example.com`,
-            password: 'UniqueTestPass!2026',
+            password: '123456',
             role: 'user',
             isActive: true,
             emailVerified: true

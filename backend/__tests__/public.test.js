@@ -46,7 +46,7 @@ describe('Public Event Responses', () => {
         await client.csrfRequest('post', '/api/auth/register', {
             name: 'Organizer',
             email: 'public.organizer@example.com',
-            password: 'UniqueTestPass!2026',
+            password: '123456',
             role: 'organizer'
         });
 
@@ -54,7 +54,7 @@ describe('Public Event Responses', () => {
 
         const organizerLoginRes = await client.csrfRequest('post', '/api/auth/login', {
             email: 'public.organizer@example.com',
-            password: 'UniqueTestPass!2026'
+            password: '123456'
         });
         const organizerCookies = organizerLoginRes.headers['set-cookie'];
         const organizerAccessTokenCookie = organizerCookies.find(cookie => cookie.startsWith('accessToken='));
@@ -65,7 +65,7 @@ describe('Public Event Responses', () => {
         attendeeUser = await User.create({
             name: 'Attendee',
             email: 'public.attendee@example.com',
-            password: 'UniqueTestPass!2026',
+            password: '123456',
             role: 'user',
             emailVerified: true
         });

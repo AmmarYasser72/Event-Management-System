@@ -44,7 +44,7 @@ describe('Review Soft-Delete & Unique Index', () => {
         await client.csrfRequest('post', '/api/auth/register', {
             name: 'Reviewer User',
             email: 'reviewer@example.com',
-            password: 'UniqueTestPass!2026',
+            password: '123456',
             role: 'user'
         });
 
@@ -54,7 +54,7 @@ describe('Review Soft-Delete & Unique Index', () => {
 
         const loginRes = await client.csrfRequest('post', '/api/auth/login', {
             email: 'reviewer@example.com',
-            password: 'UniqueTestPass!2026'
+            password: '123456'
         });
 
         const cookies = loginRes.headers['set-cookie'];

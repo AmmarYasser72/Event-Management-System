@@ -28,7 +28,7 @@ beforeAll(async () => {
     const admin = await User.create({
         name: 'Admin',
         email: 'admin_analytics@example.com',
-        password: 'UniqueTestPass!2026',
+        password: '123456',
         role: 'admin',
         isActive: true,
         emailVerified: true
@@ -41,7 +41,7 @@ beforeAll(async () => {
     const user = await User.create({
         name: 'User',
         email: 'user_analytics@example.com',
-        password: 'UniqueTestPass!2026',
+        password: '123456',
         role: 'user',
         isActive: true,
         emailVerified: true
@@ -50,7 +50,7 @@ beforeAll(async () => {
     const organizerUser = await User.create({
         name: 'Organizer',
         email: 'org_analytics@example.com',
-        password: 'UniqueTestPass!2026',
+        password: '123456',
         role: 'organizer',
         isActive: true,
         emailVerified: true
@@ -235,7 +235,7 @@ describe('Analytics Endpoints', () => {
         const growthUserCurrent = await User.create({
             name: 'Growth Attendee Current',
             email: `growth_current_${Date.now()}@example.com`,
-            password: 'UniqueTestPass!2026',
+            password: '123456',
             role: 'user',
             isActive: true,
             emailVerified: true
@@ -243,7 +243,7 @@ describe('Analytics Endpoints', () => {
         const growthUserPrevious = await User.create({
             name: 'Growth Attendee Previous',
             email: `growth_previous_${Date.now()}@example.com`,
-            password: 'UniqueTestPass!2026',
+            password: '123456',
             role: 'user',
             isActive: true,
             emailVerified: true
@@ -271,7 +271,7 @@ describe('Analytics Endpoints', () => {
         const otherUser1 = await User.create({
             name: 'Other Event Attendee 1',
             email: `other1_${Date.now()}@example.com`,
-            password: 'UniqueTestPass!2026',
+            password: '123456',
             role: 'user',
             isActive: true,
             emailVerified: true
@@ -279,7 +279,7 @@ describe('Analytics Endpoints', () => {
         const otherUser2 = await User.create({
             name: 'Other Event Attendee 2',
             email: `other2_${Date.now()}@example.com`,
-            password: 'UniqueTestPass!2026',
+            password: '123456',
             role: 'user',
             isActive: true,
             emailVerified: true
@@ -317,7 +317,7 @@ describe('Analytics Endpoints', () => {
         const otherOrg = await User.create({
             name: 'Other Org',
             email: 'other@example.com',
-            password: 'UniqueTestPass!2026',
+            password: '123456',
             role: 'organizer',
             isActive: true,
             emailVerified: true

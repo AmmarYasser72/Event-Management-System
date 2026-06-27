@@ -24,7 +24,7 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: [true, 'Password is required'],
-    minlength: [12, 'Password must be at least 12 characters'],
+    minlength: [6, 'Password must be exactly 6 characters'],
     select: false // Don't include password in queries by default
   },
   role: {
@@ -344,4 +344,3 @@ userSchema.index({ isActive: 1 });
 userSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('User', userSchema);
-
