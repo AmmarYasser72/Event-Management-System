@@ -296,7 +296,7 @@ const AdminSettings = () => {
                                                 placeholder="Enter new password"
                                             />
                                         </div>
-                                        <p className="text-xs text-gray-500 mt-1">Password must be exactly 6 characters.</p>
+                                        <p className="text-xs text-gray-500 mt-1">Password must be at least 6 characters.</p>
                                     </div>
                                 </div>
                                 <div className="pt-4 flex justify-end">

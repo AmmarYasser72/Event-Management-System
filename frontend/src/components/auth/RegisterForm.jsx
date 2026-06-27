@@ -50,8 +50,8 @@ const OptimizedRegisterForm = ({ onToggleMode }) => {
     let feedback = [];
 
     // Length check
-    if (password.length === 6) score = 5;
-    else feedback.push('exactly 6 characters');
+    if (password.length >= 6) score = 5;
+    else feedback.push('at least 6 characters');
 
     const levels = [
       { level: 'Very Weak', color: 'red', bgColor: 'bg-red-500' },
@@ -83,7 +83,7 @@ const OptimizedRegisterForm = ({ onToggleMode }) => {
       case 'phone':
         return value.length >= 10 ? null : 'Invalid phone number';
       case 'password':
-        return value.length === 6 ? null : 'Password must be exactly 6 characters';
+        return value.length >= 6 ? null : 'Password must be at least 6 characters';
       case 'confirmPassword':
         return value === formData.password ? null : 'Passwords do not match';
       case 'accountType':
@@ -422,7 +422,7 @@ const OptimizedRegisterForm = ({ onToggleMode }) => {
                     value={formData.password}
                     onChange={handleChange}
                     className={`pl-10 pr-10 ${errors.password ? 'border-red-300' : ''}`}
-                    placeholder="Create a 6-character password"
+                    placeholder="Create a password"
                     required
                   />
                   <button
@@ -466,18 +466,18 @@ const OptimizedRegisterForm = ({ onToggleMode }) => {
 
                     {/* Requirements Checklist */}
                     <div className="grid grid-cols-2 gap-1 text-xs">
-                      <div className={`flex items-center gap-1 ${formData.password.length === 6 ? 'text-green-600' : 'text-gray-400'
+                      <div className={`flex items-center gap-1 ${formData.password.length >= 6 ? 'text-green-600' : 'text-gray-400'
                         }`}>
-                        {formData.password.length === 6 ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                        <span>Exactly 6 characters</span>
+                        {formData.password.length >= 6 ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                        <span>At least 6 characters</span>
                       </div>
                       <div className="flex items-center gap-1 text-green-600">
                         <CheckCircle className="h-3 w-3" />
                         <span>Any characters allowed</span>
                       </div>
-                      <div className={`flex items-center gap-1 ${formData.password.length === 6 ? 'text-green-600' : 'text-gray-400'
+                      <div className={`flex items-center gap-1 ${formData.password.length >= 6 ? 'text-green-600' : 'text-gray-400'
                         }`}>
-                        {formData.password.length === 6 ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                        {formData.password.length >= 6 ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
                         <span>No minimum complexity</span>
                       </div>
                     </div>

@@ -102,8 +102,8 @@ const registerValidator = [
     .isString()
     .withMessage('Password must be a string')
     .bail()
-    .isLength({ min: 6, max: 6 })
-    .withMessage('Password must be exactly 6 characters')
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters')
     .custom((value) => {
       const errors = validatePasswordStrength(value);
       if (errors.length > 0) {
@@ -224,8 +224,8 @@ const changePasswordValidator = [
     .isString()
     .withMessage('New password must be a string')
     .bail()
-    .isLength({ min: 6, max: 6 })
-    .withMessage('Password must be exactly 6 characters')
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters')
     .custom((value) => {
       const errors = validatePasswordStrength(value);
       if (errors.length > 0) {
@@ -834,8 +834,8 @@ const resetPasswordValidator = [
     .isString()
     .withMessage('Password must be a string')
     .bail()
-    .isLength({ min: 6, max: 6 })
-    .withMessage('Password must be exactly 6 characters')
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters')
     .custom((value) => {
       const errors = validatePasswordStrength(value);
       if (errors.length > 0) {

@@ -3,7 +3,7 @@ import React from 'react';
 const getStrength = (password) => {
     let score = 0;
     if (!password) return { score: 0, label: '', color: '' };
-    if (password.length === 6) score = 5;
+    if (password.length >= 6) score = 5;
 
     const levels = [
         { label: '', color: '', bg: 'bg-gray-200' },
@@ -21,7 +21,7 @@ const PasswordStrengthMeter = ({ password }) => {
     if (!password) return null;
 
     const rules = [
-        { test: /^.{6}$/, label: 'Exactly 6 characters' },
+        { test: /^.{6,}$/, label: 'At least 6 characters' },
         { test: /[\s\S]*/, label: 'Any characters allowed' },
     ];
 
