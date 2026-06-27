@@ -11,7 +11,8 @@ const upload = multer({ dest: "uploads/" });
 
 router.post("/add-newEvents", requireAuth, isAdmin, upload.array("photos", 5), addEvents);
 router.get("/all", getAllEvents);
-router.get("/singleEvent/:id", getEventById); // <- match controller param
+router.get("/singleEvent/:id", getEventById);
+router.get("/:id", getEventById);
 router.put("/updateEvent/:id", updateEvent);
 router.get("/board", requireAuth, isAdmin, getEventBoard);
 

@@ -4,13 +4,14 @@ import { questionSchema } from "./question.model.js";
 
 const eventSchema = new mongoose.Schema(
   {
+    eventCode: { type: String, required: true, unique: true, index: true },
     eventName: { type: String, required: true },
     location: { type: String, required: true },
     description: { type: String },
-    startDate: { type: String },
-    startTime: { type: String },
-    endDate: { type: String },
-    endTime: { type: String },
+    startDate: { type: Date, required: true },
+    startTime: { type: String, required: true },
+    endDate: { type: Date, required: true },
+    endTime: { type: String, required: true },
     category: {
       type: String,
       enum: ["sports matches", "music", "exhibition", "conference"],
@@ -18,13 +19,13 @@ const eventSchema = new mongoose.Schema(
     },
     publishEvent: { type: Boolean, default: false },
 
-    registrationStartDate: { type: String },
+    registrationStartDate: { type: Date },
     registrationStartTime: { type: String },
-    registrationEndDate: { type: String },
+    registrationEndDate: { type: Date },
     registrationEndTime: { type: String },
 
-    tickets: { type: [ticketSchema], default: [] },       // ✅ embedded schema
-    questions: { type: [questionSchema], default: [] },   // ✅ embedded schema
+    tickets: { type: [ticketSchema], default: [] },
+    questions: { type: [questionSchema], default: [] },
 
     photos: [{ type: String }],
     organizer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },

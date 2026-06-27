@@ -1,13 +1,15 @@
 import { Booking } from "../models/booking.models.js";
+import { extractQrToken } from "../utils/qr.js";
 
 export const verifyQR = async (req, res) => {
   try {
-    const { token } = req.body || {};
-    if (!token) return res.status(400).json({ success: false, message: "QR token is required" });
+    const { token, qrCode } = req.body || {};
+    const parsedToken = extractQrToken(token || qrCode);
+    if (!parsedToken) return res.status(400).json({ success: false, message: "QR token is required" });
 
-    const booking = await Booking.findOne({ qrToken: token }).populate(
+    const booking = await Booking.findOne({ qrToken: parsedToken }).populate(
       "event",
-      "eventName location startDate startTime"
+      "eventName eventCode location startDate startTime"
     );
 
     if (!booking) return res.status(404).json({ success: false, message: "Invalid QR" });
