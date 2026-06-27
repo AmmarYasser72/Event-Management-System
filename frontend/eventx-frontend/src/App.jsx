@@ -258,7 +258,14 @@ function App() {
   return (
     <AuthProvider>
       <ErrorBoundary>
-        <AppContent />
+        <div className="min-h-screen flex flex-col bg-white">
+          <div className="flex-1">
+            <AppContent />
+          </div>
+          <footer className="border-t bg-white px-6 py-4 text-center text-sm text-gray-600">
+            © 2026 EventX Studio. All rights reserved by Ammar Yasser.
+          </footer>
+        </div>
         <Toaster richColors position="top-right" closeButton />
         <Analytics />
         <SpeedInsights />
