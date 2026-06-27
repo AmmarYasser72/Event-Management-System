@@ -19,6 +19,13 @@ const ResetPasswordPage = () => {
 
     const token = searchParams.get('token');
 
+    const getErrorMessage = (result, fallbackMessage) => {
+        if (Array.isArray(result?.errors) && result.errors.length > 0) {
+            return result.errors[0];
+        }
+        return result?.message || fallbackMessage;
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
@@ -44,7 +51,7 @@ const ResetPasswordPage = () => {
             setSuccess(true);
             setTimeout(() => navigate('/auth'), 3000);
         } else {
-            setError(result.message || 'Password reset failed. The link may have expired.');
+            setError(getErrorMessage(result, 'Password reset failed. The link may have expired.'));
         }
     };
 

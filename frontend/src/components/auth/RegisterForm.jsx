@@ -36,6 +36,13 @@ const OptimizedRegisterForm = ({ onToggleMode }) => {
 
   const { register } = useAuth();
 
+  const getSubmitErrorMessage = (result, fallbackMessage) => {
+    if (Array.isArray(result?.errors) && result.errors.length > 0) {
+      return result.errors[0];
+    }
+    return result?.message || fallbackMessage;
+  };
+
   const steps = [
     { id: 1, title: 'Personal Info', fields: ['firstName', 'lastName', 'email', 'phone'] },
     { id: 2, title: 'Account & Security', fields: ['accountType', 'password', 'confirmPassword'] },
@@ -172,7 +179,7 @@ const OptimizedRegisterForm = ({ onToggleMode }) => {
       if (result.success) {
         setAccountCreated(true);
       } else {
-        setErrors({ submit: result.message || 'Registration failed' });
+        setErrors({ submit: getSubmitErrorMessage(result, 'Registration failed') });
       }
     } catch {
       setErrors({ submit: 'Network error. Please try again.' });
