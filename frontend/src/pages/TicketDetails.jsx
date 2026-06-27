@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import axios from "axios";
 import QRCode from "react-qr-code";
+import { api } from "../lib/api";
 
 export default function TicketDetails() {
   const { id } = useParams();
@@ -10,12 +10,7 @@ export default function TicketDetails() {
   useEffect(() => {
     (async () => {
       try {
-        const stored = JSON.parse(localStorage.getItem("userToken") || "{}");
-        const token = stored.token;
-        const { data } = await axios.get(`http://localhost:5000/api/v1/bookings/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-          withCredentials: true,
-        });
+        const { data } = await api.get(`/bookings/${id}`);
         if (data?.success) setBooking(data.booking);
       } catch (e) { console.error(e); }
     })();
@@ -43,7 +38,7 @@ export default function TicketDetails() {
             </div>
             <div className="flex flex-col items-center">
               <div className="rounded-lg bg-white p-3">
-                <QRCode value={booking.qrToken} size={140} />
+                <QRCode value={booking.qrCode || booking.qrToken} size={140} />
               </div>
               <div className="mt-2 text-xs text-gray-400">
                 {booking.redeemedAt ? `Used at: ${new Date(booking.redeemedAt).toLocaleString()}` : "Not used yet"}
@@ -62,7 +57,7 @@ export default function TicketDetails() {
             </div>
             <div className="rounded-xl bg-gray-800 p-3">
               <div className="text-xs text-gray-400">Price Paid</div>
-              <div className="text-lg font-semibold">{(booking.pricePaid || 0).toLocaleString()} LKR</div>
+              <div className="text-lg font-semibold">{(booking.pricePaid || 0).toLocaleString()} EGP</div>
             </div>
           </div>
 

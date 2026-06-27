@@ -1,12 +1,12 @@
 // frontend/src/components/adminDashBoard.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, BarChart, Bar, CartesianGrid
 } from "recharts";
 import QRCode from "react-qr-code";
+import { api } from "../lib/api";
 
 /* ---------- small UI helpers ---------- */
 function StatCard({ title, value, icon, accent = false }) {
@@ -135,12 +135,7 @@ export default function AdminDashBoard() {
     // fetch analytics
     const fetchOverview = async () => {
       try {
-        const stored = JSON.parse(localStorage.getItem("userToken") || "{}");
-        const token = stored.token;
-        const res = await axios.get("http://localhost:5000/api/v1/analytics/overview", {
-          headers: { Authorization: `Bearer ${token}` },
-          withCredentials: true,
-        });
+        const res = await api.get("/analytics/overview");
         if (res.data?.success) {
           setTotals(res.data.totals);
           setNetSales(res.data.charts.netSales);

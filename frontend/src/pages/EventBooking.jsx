@@ -1,112 +1,137 @@
-import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { toast } from "react-hot-toast";
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import toast from "react-hot-toast";
+import { api } from "../lib/api";
 
-const BookingPage = () => {
+function formatPrice(value) {
+  return Number(value || 0).toLocaleString();
+}
+
+export default function BookingPage() {
   const { eventId } = useParams();
   const navigate = useNavigate();
   const [event, setEvent] = useState(null);
-  const [ticketType, setTicketType] = useState("");
-  const [quantity, setQuantity] = useState(1);
-  const [userDetails, setUserDetails] = useState({
-    name: "",
-    email: "",
-  });
+  const [ticketTypeId, setTicketTypeId] = useState("");
+  const [seatNumber, setSeatNumber] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-  // fetch event details
   useEffect(() => {
-    const fetchEvent = async () => {
+    (async () => {
       try {
-        const res = await fetch(
-          `http://localhost:5000/api/v1/events/singleEvent/${eventId}`
-        );
-        const data = await res.json();
-        if (res.ok && data.success) {
+        const { data } = await api.get(`/events/${eventId}`);
+        if (data?.success) {
           setEvent(data.event);
-          if (data.event.tickets && data.event.tickets.length > 0) {
-            setTicketType(data.event.tickets[0].type); // default select first ticket
-          }
+          setTicketTypeId(data.event.tickets?.[0]?.id || "");
         }
-      } catch (err) {
-        console.error("Error fetching event:", err);
+      } catch (error) {
+        console.error(error);
+        toast.error("Unable to load the event");
+      } finally {
+        setLoading(false);
       }
-    };
-    fetchEvent();
+    })();
   }, [eventId]);
 
-  const handleBooking = () => {
-    if (!userDetails.name || !userDetails.email) {
-      toast.error("Please fill in your details");
+  const selectedTicket = useMemo(
+    () => event?.tickets?.find((ticket) => ticket.id === ticketTypeId) || null,
+    [event, ticketTypeId]
+  );
+
+  async function handleBooking() {
+    if (!ticketTypeId) {
+      toast.error("Please choose a ticket type");
       return;
     }
 
-    // Mock booking success
-    toast.success("🎉 Booking successful!");
-    navigate(`/events/${eventId}/confirmation`);
-  };
+    try {
+      setSubmitting(true);
+      const { data } = await api.post("/bookings", {
+        eventId,
+        ticketTypeId,
+        seatNumber: seatNumber.trim() || null,
+      });
 
-  if (!event) return <p className="p-6">Loading booking page...</p>;
+      if (data?.success) {
+        toast.success("Ticket booked successfully");
+        navigate(`/ticket/${data.booking._id || data.booking.id}`, { replace: true });
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || "Booking failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (loading) {
+    return <div className="min-h-screen bg-[#0d1320] text-white grid place-items-center">Loading booking page...</div>;
+  }
+
+  if (!event) {
+    return <div className="min-h-screen bg-[#0d1320] text-white grid place-items-center">Event not found.</div>;
+  }
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Book Ticket for {event.eventName}</h1>
+    <div className="min-h-screen bg-[#0d1320] px-6 py-10 text-white">
+      <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <section className="rounded-[30px] border border-white/10 bg-white/5 p-7">
+          <p className="text-sm uppercase tracking-[0.25em] text-emerald-300/80">Booking</p>
+          <h1 className="mt-3 text-4xl font-semibold">{event.title}</h1>
+          <p className="mt-3 text-white/65">{event.location} • {event.startDate} at {event.startTime}</p>
 
-      <div className="border p-4 rounded-lg shadow mb-6">
-        <h2 className="text-lg font-semibold mb-2">Choose Ticket</h2>
-        {event.tickets?.length > 0 ? (
-          <select
-            value={ticketType}
-            onChange={(e) => setTicketType(e.target.value)}
-            className="border p-2 w-full rounded"
+          <div className="mt-8 space-y-4">
+            <label className="block text-sm text-white/70">Choose ticket</label>
+            <select
+              value={ticketTypeId}
+              onChange={(eventChange) => setTicketTypeId(eventChange.target.value)}
+              className="w-full rounded-2xl border border-white/10 bg-[#111827] px-4 py-3 text-white outline-none"
+            >
+              {event.tickets?.map((ticket) => (
+                <option key={ticket.id} value={ticket.id}>
+                  {ticket.name} - {formatPrice(ticket.price)} EGP
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mt-6 space-y-4">
+            <label className="block text-sm text-white/70">Seat number (optional)</label>
+            <input
+              value={seatNumber}
+              onChange={(seatEvent) => setSeatNumber(seatEvent.target.value)}
+              placeholder="Example: A12 or General"
+              className="w-full rounded-2xl border border-white/10 bg-[#111827] px-4 py-3 text-white outline-none placeholder:text-white/35"
+            />
+          </div>
+        </section>
+
+        <aside className="rounded-[30px] border border-white/10 bg-white/5 p-7">
+          <h2 className="text-2xl font-semibold">Summary</h2>
+          <div className="mt-6 space-y-4 text-sm text-white/70">
+            <div className="flex items-center justify-between">
+              <span>Event code</span>
+              <span>{event.eventCode}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Ticket type</span>
+              <span>{selectedTicket?.name || "-"}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Price</span>
+              <span>{formatPrice(selectedTicket?.price || 0)} EGP</span>
+            </div>
+          </div>
+
+          <button
+            onClick={handleBooking}
+            disabled={submitting}
+            className="mt-8 w-full rounded-full bg-emerald-300 px-4 py-3 text-sm font-semibold text-[#07111e] disabled:opacity-60"
           >
-            {event.tickets.map((ticket, idx) => (
-              <option key={idx} value={ticket.type}>
-                {ticket.type} - ₹{ticket.price}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <p className="text-gray-500">No tickets available</p>
-        )}
+            {submitting ? "Creating ticket..." : "Confirm booking"}
+          </button>
+        </aside>
       </div>
-
-      <div className="border p-4 rounded-lg shadow mb-6">
-        <h2 className="text-lg font-semibold mb-2">Quantity</h2>
-        <input
-          type="number"
-          value={quantity}
-          min="1"
-          onChange={(e) => setQuantity(Number(e.target.value))}
-          className="border p-2 w-full rounded"
-        />
-      </div>
-
-      <div className="border p-4 rounded-lg shadow mb-6">
-        <h2 className="text-lg font-semibold mb-2">Your Details</h2>
-        <input
-          type="text"
-          placeholder="Your Name"
-          value={userDetails.name}
-          onChange={(e) => setUserDetails({ ...userDetails, name: e.target.value })}
-          className="border p-2 w-full rounded mb-3"
-        />
-        <input
-          type="email"
-          placeholder="Your Email"
-          value={userDetails.email}
-          onChange={(e) => setUserDetails({ ...userDetails, email: e.target.value })}
-          className="border p-2 w-full rounded"
-        />
-      </div>
-
-      <button
-        onClick={handleBooking}
-        className="bg-blue-600 text-white px-4 py-2 rounded w-full"
-      >
-        Confirm Booking
-      </button>
     </div>
   );
-};
-
-export default BookingPage;
+}

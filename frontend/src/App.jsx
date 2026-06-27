@@ -16,20 +16,17 @@ import MyTickets from './pages/MyTickets';
 import TicketDetails from './pages/TicketDetails';
 import AttendeeInsightsPage from "./pages/AttendeeInsightsPage";
 import { Toaster } from 'react-hot-toast';
+import { getStoredAuth } from "./lib/api";
 
 function RequireAdmin({ children }) {
-  let token = ""; let role = "";
-  try {
-    token = JSON.parse(localStorage.getItem('userToken') || '{}')?.token || "";
-    role = JSON.parse(localStorage.getItem('user') || '{}')?.role || "";
-  } catch {}
+  const { token, user } = getStoredAuth();
+  const role = user?.role || "";
   if (!token) return <Navigate to="/login" replace />;
   if (role !== "admin") return <Navigate to="/login" replace />;
   return children;
 }
 function RequireUser({ children }) {
-  let token = ""; 
-  try { token = JSON.parse(localStorage.getItem('userToken') || '{}')?.token || ""; } catch {}
+  const { token } = getStoredAuth();
   if (!token) return <Navigate to="/login" replace />;
   return children;
 }
@@ -46,8 +43,8 @@ export default function App() {
 
         {/* User */}
         <Route path='/userDashBoard' element={<UserDashboard />} />
-        <Route path='/eventDetails' element={<EventDetailPage />} />
-        <Route path='/booking/:id' element={<RequireUser><EventBookingPage /></RequireUser>} />
+        <Route path='/event/:id' element={<EventDetailPage />} />
+        <Route path='/booking/:eventId' element={<RequireUser><EventBookingPage /></RequireUser>} />
         <Route path='/my-tickets' element={<RequireUser><MyTickets /></RequireUser>} />
         <Route path='/ticket/:id' element={<RequireUser><TicketDetails /></RequireUser>} />
         <Route path='/attendee-insights' element={<RequireAdmin><AttendeeInsightsPage /></RequireAdmin>} />

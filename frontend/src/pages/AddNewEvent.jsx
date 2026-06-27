@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Plus, Bell, MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 import toast from "react-hot-toast";
+import { api } from "../lib/api";
 
 /**
  * Helper: combine date + time to ISO (backend expects Date for ticket sales* fields)
@@ -147,9 +147,7 @@ export default function AddNewEventForm() {
         registrations: Number(t.registrations || 0),
       }));
 
-      const stored = JSON.parse(localStorage.getItem("userToken") || "{}");
-      const token = stored.token;
-      if (!token) {
+      if (!localStorage.getItem("userToken")) {
         toast.error("Please login as admin first");
         return;
       }
@@ -160,17 +158,11 @@ export default function AddNewEventForm() {
       fd.append("questions", JSON.stringify(questions));
       photos.forEach((file) => fd.append("photos", file));
 
-      const res = await axios.post(
-        "http://localhost:5000/api/v1/events/add-newEvents",
-        fd,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-          withCredentials: true,
-        }
-      );
+      const res = await api.post("/events/add-newEvents", fd, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
 
       if (res.data?.success) {
         toast.success(res.data.message || "Event created");

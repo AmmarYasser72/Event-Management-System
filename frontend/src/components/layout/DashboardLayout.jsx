@@ -1,7 +1,7 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useTheme } from "../../context/ThemeProvider";
-import axios from "axios";
+import { api, clearStoredAuth } from "../../lib/api";
 
 const Item = ({ to, icon, children }) => (
   <NavLink
@@ -22,11 +22,9 @@ export default function DashboardLayout({ children }) {
 
   async function logout() {
     try {
-      // backend has logout route; if not, clearing local storage is enough for FE
-      await axios.post("http://localhost:5000/api/v1/user/logout", {}, { withCredentials: true }).catch(()=>{});
+      await api.get("/user/logout").catch(() => {});
     } catch {}
-    localStorage.removeItem("userToken");
-    localStorage.removeItem("user");
+    clearStoredAuth();
     nav("/login", { replace: true });
   }
 

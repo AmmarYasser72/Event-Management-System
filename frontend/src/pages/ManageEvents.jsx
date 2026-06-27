@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 import {
   PlusCircle,
   ChevronDown,
@@ -13,6 +12,7 @@ import {
   Calendar,
   Clock,
 } from "lucide-react";
+import { api } from "../lib/api";
 
 function currency(n) {
   return (n ?? 0).toLocaleString() + " LKR";
@@ -116,12 +116,7 @@ export default function ManageEvents() {
   useEffect(() => {
     const fetchBoard = async () => {
       try {
-        const stored = JSON.parse(localStorage.getItem("userToken") || "{}");
-        const token = stored.token;
-        const { data } = await axios.get(
-          "http://localhost:5000/api/v1/events/board",
-          { headers: { Authorization: `Bearer ${token}` }, withCredentials: true }
-        );
+        const { data } = await api.get("/events/board");
         if (data?.success) setBoard(data.board);
       } catch (e) {
         console.error(e);

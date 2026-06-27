@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import axios from "axios";
 import {
   ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   PieChart, Pie, Cell, Legend
 } from "recharts";
+import { api } from "../../lib/api";
 
 function StatCard({ title, big, trend="↑ 0% Increase", value="0" }) {
   return (
@@ -30,12 +30,7 @@ export default function AttendeeInsights() {
   useEffect(() => {
     (async () => {
       try {
-        const stored = JSON.parse(localStorage.getItem("userToken") || "{}");
-        const token = stored.token;
-        const { data } = await axios.get("http://localhost:5000/api/v1/analytics/overview", {
-          headers: { Authorization: `Bearer ${token}` },
-          withCredentials: true,
-        });
+        const { data } = await api.get("/analytics/overview");
         if (data?.success) {
           setLocations(data.charts?.locations || []);
           setInterests(data.demographics?.interests || data.charts?.engagement || []);
