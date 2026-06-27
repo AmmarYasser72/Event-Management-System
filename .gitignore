@@ -18,8 +18,9 @@ yarn-error.log*
 **/node_modules/
 
 # Build outputs
-frontend/eventx-frontend/dist/
-frontend/eventx-frontend/.vite/
+frontend/dist/
+frontend/.vite/
+backend/uploads/
 
 # Tooling caches
 .vercel/

@@ -30,7 +30,7 @@ const paymentsService = require('./services/paymentsService');
 const { probeTransactionCapability, getTransactionHealthState } = require('./utils/transactionHealth');
 
 const app = express();
-const PORT = config.port;
+const PORT = Number.parseInt(config.port, 10) || 5000;
 
 app.disable('x-powered-by');
 
@@ -255,6 +255,41 @@ const verifyRateLimitRedisConfigured = () => {
   }
 };
 
+const listenWithPortFallback = async (preferredPort, host = '0.0.0.0') => {
+  let port = preferredPort;
+  const maxAttempts = process.env.PORT ? 1 : 10;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      const server = await new Promise((resolve, reject) => {
+        const listener = app.listen(port, host);
+        listener.once('listening', () => resolve(listener));
+        listener.once('error', reject);
+      });
+
+      if (port !== preferredPort) {
+        logger.warn(`Port ${preferredPort} is busy. Server started on port ${port} instead.`);
+      }
+
+      return { server, port };
+    } catch (error) {
+      if (error.code === 'EADDRINUSE' && !process.env.PORT) {
+        logger.warn(`Port ${port} is already in use. Trying port ${port + 1}...`);
+        port += 1;
+        continue;
+      }
+
+      if (error.code === 'EADDRINUSE') {
+        logger.error(`Port ${port} is already in use. Stop the existing process or set a different PORT.`);
+      }
+
+      throw error;
+    }
+  }
+
+  throw new Error(`Unable to find an open port between ${preferredPort} and ${preferredPort + maxAttempts - 1}.`);
+};
+
 // ─── Routes ──────────────────────────────────────────────────────────
 const apiRoutes = require('./routes');
 
@@ -301,7 +336,8 @@ const startServer = async () => {
   const idempotencyReconciler = startIdempotencyReconciler();
   const transactionMonitor = startTransactionCapabilityMonitor();
 
-  const server = app.listen(PORT, '0.0.0.0', () => logger.info(`Server running on port ${PORT}`));
+  const { server, port } = await listenWithPortFallback(PORT, '0.0.0.0');
+  logger.info(`Server running on port ${port}`);
   server.timeout = 30000; // 30 second request timeout
 
   // ─── Graceful Shutdown ──────────────────────────────────────────────

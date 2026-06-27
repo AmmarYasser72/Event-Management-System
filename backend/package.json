@@ -20,6 +20,7 @@
   "author": "EventX Studio Team",
   "license": "MIT",
   "description": "Backend API for EventX Studio - Event Management System",
+  "packageManager": "npm@10.9.3",
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "bowser": "^2.12.1",
