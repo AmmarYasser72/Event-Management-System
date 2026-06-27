@@ -32,8 +32,13 @@ exports.register = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Registered successfully. Please verify your email.',
-      data: { user: result.user.toJSON(), emailVerificationRequired: true },
+      message: result.emailVerificationRequired
+        ? 'Registered successfully. Please verify your email.'
+        : 'Registered successfully. You can now sign in.',
+      data: {
+        user: result.user.toJSON(),
+        emailVerificationRequired: result.emailVerificationRequired,
+      },
     });
   } catch (error) {
     logger.error('Registration error: ' + error.message);

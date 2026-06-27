@@ -99,7 +99,6 @@ export const AuthProvider = ({ children }) => {
       const result = await api.post('/auth/register', userData);
 
       if (result.ok) {
-        setUser(result.data.user);
         return { success: true, data: result.data };
       }
 

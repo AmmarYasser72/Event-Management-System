@@ -32,6 +32,7 @@ const OptimizedRegisterForm = ({ onToggleMode }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [accountCreated, setAccountCreated] = useState(false);
+  const [emailVerificationRequired, setEmailVerificationRequired] = useState(true);
   const [passwordStrength, setPasswordStrength] = useState({ score: 0, feedback: '', color: 'gray' });
 
   const { register } = useAuth();
@@ -177,6 +178,7 @@ const OptimizedRegisterForm = ({ onToggleMode }) => {
       });
 
       if (result.success) {
+        setEmailVerificationRequired(Boolean(result.data?.emailVerificationRequired));
         setAccountCreated(true);
       } else {
         setErrors({ submit: getSubmitErrorMessage(result, 'Registration failed') });
@@ -199,7 +201,11 @@ const OptimizedRegisterForm = ({ onToggleMode }) => {
           </div>
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Account Created!</h2>
-            <p className="text-gray-600">Please check your email to verify your account.</p>
+            <p className="text-gray-600">
+              {emailVerificationRequired
+                ? 'Please check your email to verify your account.'
+                : 'Your account is ready. You can sign in now.'}
+            </p>
           </div>
           <Button onClick={onToggleMode} className="w-full bg-blue-600 hover:bg-blue-700">
             Sign In to Your Account

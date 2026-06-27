@@ -180,18 +180,23 @@ exports.registerUser = async (userData, deviceInfo) => {
     age,
     gender,
     location,
+    emailVerified: config.env === 'development',
   });
 
-  const verificationToken = user.generateEmailVerificationToken();
+  const verificationToken = user.emailVerified ? null : user.generateEmailVerificationToken();
   await user.save();
 
-  sendVerificationEmail(user.email, verificationToken).catch((error) =>
-    logger.error(`Failed to send verification email: ${error.message}`),
-  );
+  if (verificationToken) {
+    sendVerificationEmail(user.email, verificationToken).catch((error) =>
+      logger.error(`Failed to send verification email: ${error.message}`),
+    );
+  }
 
-  // IMPORTANT: Do NOT create a session or issue tokens until the user verifies email.
-  // This prevents unverified accounts from receiving valid auth cookies.
-  return { user, role: safeRole };
+  return {
+    user,
+    role: safeRole,
+    emailVerificationRequired: !user.emailVerified,
+  };
 };
 
 // Login
