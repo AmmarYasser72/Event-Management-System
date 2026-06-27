@@ -395,14 +395,7 @@ const HomePage = () => {
               </ul>
             </div>
           </div>
-          <div className="border-t pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-400">
-            <div>© {new Date().getFullYear()} EventX Studio. All rights reserved.</div>
-            <div className="flex items-center gap-4">
-              <a href="#" className="hover:text-gray-600">Twitter</a>
-              <a href="#" className="hover:text-gray-600">LinkedIn</a>
-              <a href="#" className="hover:text-gray-600">Instagram</a>
-            </div>
-          </div>
+    
         </div>
       </footer>
     </div>

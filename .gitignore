@@ -6,7 +6,7 @@ Thumbs.db
 # Env files (backend and frontend)
 **/.env
 **/.env.*
-!**/.env.example
+**/.env.example
 
 # Logs
 logs
