@@ -55,7 +55,7 @@ The frontend test script is a placeholder; the backend contains the automated te
 
 ## Demo availability
 
-A publicly accessible deployment is not currently linked. The previously configured deployment led to Vercel authentication when checked on September 10, 2026. Use the local setup instructions to explore the application.
+[Open EventX Studio](https://event-management-system-3xxa.vercel.app). The public landing page was reachable when checked on September 10, 2026. Authenticated workflows and external services require their own runtime verification.
 
 ## More work
 
